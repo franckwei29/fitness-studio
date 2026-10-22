@@ -4,7 +4,7 @@ This record distinguishes implementation checks from complete acceptance. It is 
 
 ## Current evidence
 
-- The consolidated backend run at source revision `b7e9c57` completed with **214 passing tests**. This count is not a claim of complete scenario coverage.
+- The consolidated backend run including bounded owner revisions completed with **229 passing tests**. Five additional lifecycle-message precedence cases passed in a separate focused run. The frontend production build also passed. These counts are not a claim of complete scenario coverage.
 - The isolated backend suite exercises real MySQL transactions and Redis task state with provider calls disabled. Run it with `.venv/bin/python scripts/test_backend.py` from the application root.
 - Browser scenarios live in `frontend/e2e`; run `npx --no-install playwright test` from `frontend`. Most use explicit API presentation fixtures. `member.spec.ts` uses the local application. Tests state their evidence boundaries.
 - A separate local acceptance environment has six settled Gemini calls across Intake, Coach, Nutrition and Technical Manager. Its recorded total is US$0.008749. This is that environment's total, not an account-wide billing statement. The requests cover Chinese intake, coordinated planning including one invalid-candidate correction, Chinese-input English-output Coach explanation, and a separately authorized read-only operations explanation.
@@ -34,7 +34,7 @@ The named checks establish the stated scope only. The open gates below remain ma
 | T14 | Combined workflow retains old active pointers until the new coordinated pair is confirmed. | Covered by named integration checks. |
 | T15 | Combined workflow exercises validated nutrition retention with new compatibility evidence and no extra model call. | Covered by named integration checks. |
 | T16 | Activation tests inject transaction failure and race two confirmations; both pointers and receipts roll back or commit together. | Covered by named database checks. |
-| T17 | `test_plan_approval_matrix_integration.py` covers Approve, Revise, Reject and Expired across Training, Nutrition and PlanPair: only approval permits activation, decision replay is stable, and changed decisions conflict. | Complete the member-facing follow-up after Revise/Reject and bounded revised-candidate continuation. |
+| T17 | `test_plan_approval_matrix_integration.py` covers Approve, Revise, Reject and Expired across Training, Nutrition and PlanPair: only approval permits activation, decision replay is stable, and changed decisions conflict. | `test_owner_plan_revision_integration.py` checks Training, Nutrition and Combined revision loops, original deadlines, shared limits, repeated decisions, owner context and fresh approvals. Status-precedence tests retain current cancellation, expiry and budget-wait messages. Final browser review remains. |
 | T18 | Admission, configuration, activation and evaluation tests reject stale fingerprints, versions and baselines. | Cross-check every approval subject against this invariant. |
 | T19 | Repeated approval/configuration execution and concurrent activation are tested; actual service restart preserves state. | Concurrent approval and restart-after-approval require targeted evidence. |
 | T20 | Ownership tests and role policy restrict member records, fields and tools; field-permission browser and integration tests exercise configuration. | Confirm the denial audit requirement for each protected mutation. |

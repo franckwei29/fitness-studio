@@ -30,6 +30,7 @@ from app.models import (
 )
 from app.nutrition import NutritionProposal, validate_nutrition
 from app.nutrition_reuse import retained_nutrition
+from app.plan_review import owner_review_context
 from app.planning_context import revision_context
 from app.policy import PolicyDenied, execution_context
 from app.substitution import check_substitution, substitution_baseline
@@ -103,6 +104,7 @@ def run_nutrition(claim):
                     "agent_version_id": version.id,
                     **correction_context(db, item, request, authorized),
                     **revision_context(db, request, authorized, "Nutrition"),
+                    **owner_review_context(db, request, authorized, "Nutrition"),
                     "retained_nutrition": retained_nutrition(db, request, authorized, training),
                     **(
                         {
@@ -143,6 +145,7 @@ def run_nutrition(claim):
                 return {"outcome": db.get(Request, existing.request_id).result}
             item, request = lock_claim(db, claim)
             authorized = execution_context(db, item, request)
+            owner_review_context(db, request, authorized, "Nutrition")
             member = db.scalar(select(Member).where(Member.id == authorized["member_id"]).with_for_update())
             cycle_baseline(db, request, member.id)
             training = training_for(db, item, authorized, request)
@@ -248,7 +251,7 @@ def run_nutrition(claim):
                                 "nutrition": plan.content,
                                 "validation": validation,
                             },
-                            expires_at=now() + timedelta(hours=24),
+                            expires_at=min(request.deadline, now() + timedelta(hours=24)),
                         )
                     )
             if validation["passed"] and not training:

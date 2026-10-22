@@ -13,7 +13,8 @@ from app.nutrition import NutritionProposal, validate_nutrition
 
 def retained_nutrition(db, request, authorized, training):
     if (
-        request.kind != "CycleReview"
+        request.payload.get("owner_review")
+        or request.kind != "CycleReview"
         or request.payload.get("cycle_feedback", {}).get("adjustment") != "Maintenance"
     ):
         return None

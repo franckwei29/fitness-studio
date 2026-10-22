@@ -27,6 +27,7 @@ from app.models import (
     WorkItem,
     now,
 )
+from app.plan_review import owner_review_context
 from app.planning_context import revision_context
 from app.policy import execution_context
 from app.training import TrainingProposal, validate_training
@@ -81,6 +82,7 @@ def run_coach(claim):
                     "agent_version_id": version.id,
                     **correction_context(db, item, request, authorized),
                     **revision_context(db, request, authorized, "Coach"),
+                    **owner_review_context(db, request, authorized, "Coach"),
                     **(
                         {
                             "baseline_training": baseline.content,
@@ -111,6 +113,7 @@ def run_coach(claim):
                 return {"outcome": db.get(Request, existing.request_id).result}
             item, request = lock_claim(db, claim)
             authorized = execution_context(db, item, request)
+            owner_review_context(db, request, authorized, "Coach")
             member = db.scalar(select(Member).where(Member.id == authorized["member_id"]).with_for_update())
             call = db.get(ModelCall, state["candidate"]["call_id"])
             if not call or call.request_id != request.id or call.status != "Settled":
@@ -179,7 +182,7 @@ def run_coach(claim):
                             fingerprint=plan.fingerprint,
                             scope={"member_id": member.id},
                             context={"training": plan.content, "validation": validation},
-                            expires_at=now() + timedelta(hours=24),
+                            expires_at=min(request.deadline, now() + timedelta(hours=24)),
                         )
                     )
                 text = "Your training candidate is ready for review. It is not active yet."

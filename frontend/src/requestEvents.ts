@@ -2,7 +2,7 @@
 export const requestEventTypes = [
   'queued', 'processing', 'waiting', 'stopped', 'recovery', 'recovery_queued',
   'training_candidate', 'nutrition_candidate', 'completed', 'evaluation_case_completed',
-  'policy_changed', 'correction_queued', 'expired', 'cancelled',
+  'plan_reviewed', 'policy_changed', 'correction_queued', 'expired', 'cancelled',
 ];
 
 export function watchRequest(id:string, changed:()=>void, after=0){

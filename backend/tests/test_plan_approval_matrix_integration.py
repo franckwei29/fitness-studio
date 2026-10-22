@@ -65,6 +65,7 @@ def test_plan_decision_matrix(candidate, owner_client, kind, decision):
                     basis={"synthetic": True},
                 )
             )
+        request.result = {"pair_id" if kind == "PlanPair" else kind.lower() + "_id": subject_id}
         approval = Approval(
             subject_kind=kind if kind == "PlanPair" else kind + "Plan",
             subject_id=subject_id,
@@ -120,3 +121,15 @@ def test_plan_decision_matrix(candidate, owner_client, kind, decision):
         if decision != "Approved":
             assert current.training_id is None and current.nutrition_id is None
         assert db.get(Approval, approval_id).decision == decision
+
+    if decision == "Revise":
+        # The matrix checks admission to revision; lifecycle tests execute it.
+        with transaction() as db:
+            from sqlalchemy import select
+            from app.models import WorkItem
+
+            request = db.get(Request, candidate["request_id"])
+            assert request.revisions == 1 and request.status == "Queued"
+            for task in db.scalars(select(WorkItem).where(WorkItem.request_id == request.id)):
+                task.status = "Cancelled"
+            request.status = "Cancelled"

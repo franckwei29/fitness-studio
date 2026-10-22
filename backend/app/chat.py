@@ -86,6 +86,8 @@ def request_view(db, row):
         )
     if row.status == "Stopped" and (row.result or {}).get("stop_reason") == "CorrectionLimit":
         result["status_message"] = "Correction stopped at its limit. No invalid plan was activated."
+    if not waiting and (row.result or {}).get("review_message"):
+        result["status_message"] = row.result["review_message"]
     if row.status == "Stopped" and (row.result or {}).get("stop_reason") == "DeadlineExpired":
         result["status_message"] = (
             "This request expired. Its history is retained; submit a new request to continue."

@@ -285,6 +285,9 @@ def decide(identifier: str, body: Decision, user: User = Depends(owner)):
                 or plan.config_version != group.version
             ):
                 raise HTTPException(409, f"{kind} candidate context has changed.")
+            from app.plan_review import apply_plan_decision
+
+            apply_plan_decision(db, row, [plan], body.decision, body.comment)
             row.decision, row.decided_by, row.decided_at, row.comment = (
                 body.decision,
                 user.id,
@@ -322,6 +325,9 @@ def decide(identifier: str, body: Decision, user: User = Depends(owner)):
                 )
             ):
                 raise HTTPException(409, "The plan pair or its context has changed.")
+            from app.plan_review import apply_plan_decision
+
+            apply_plan_decision(db, row, [training, nutrition], body.decision, body.comment)
             row.decision, row.decided_by, row.decided_at, row.comment = (
                 body.decision,
                 user.id,
