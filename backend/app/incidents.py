@@ -85,6 +85,44 @@ def close_unresolved(identifier: str, body: Closure, user: User = Depends(owner)
         return view(incident)
 
 
+def completed_task_chain(db, request, tasks):
+    """Every replaced task must have a recorded same-subject path to completion."""
+    if not tasks:
+        return False
+    by_id = {task.id: task for task in tasks}
+    replacements = {}
+    for event in db.scalars(
+        select(AuditEvent).where(
+            AuditEvent.request_id == request.id,
+            AuditEvent.event_type == "candidate.correction_queued",
+        )
+    ):
+        source = event.details.get("previous_work_id")
+        target = event.details.get("correction_work_id")
+        if event.subject_id != target or source in replacements:
+            return False
+        replacements[source] = target
+    for task in tasks:
+        visited = set()
+        while task.status == "Superseded":
+            if task.id in visited or task.wait_reason != "CandidateValidation":
+                return False
+            visited.add(task.id)
+            successor = by_id.get(replacements.get(task.id))
+            if not successor or (successor.role, successor.subject_kind, successor.subject_id) != (
+                task.role,
+                task.subject_kind,
+                task.subject_id,
+            ):
+                return False
+            if not successor.input_versions.get("correction_plan_id"):
+                return False
+            task = successor
+        if task.status != "Completed":
+            return False
+    return True
+
+
 @router.post("/{identifier}/verify-recovery")
 def verify_recovery(identifier: str, user: User = Depends(owner)):
     with transaction() as db:
@@ -97,12 +135,7 @@ def verify_recovery(identifier: str, user: User = Depends(owner)):
             return verify_release_service(db, incident, user.id)
         request = db.get(Request, incident.request_id) if incident.request_id else None
         tasks = list(db.scalars(select(WorkItem).where(WorkItem.request_id == incident.request_id)))
-        if (
-            not request
-            or request.status != "Completed"
-            or not tasks
-            or any(row.status != "Completed" for row in tasks)
-        ):
+        if not request or request.status != "Completed" or not completed_task_chain(db, request, tasks):
             raise HTTPException(409, "The affected request has not completed successfully.")
         incident.status = "Closed"
         incident.outcome = "Recovered"
@@ -110,6 +143,7 @@ def verify_recovery(identifier: str, user: User = Depends(owner)):
             "verified_at": now().isoformat(),
             "request_id": request.id,
             "task_ids": [row.id for row in tasks],
+            "superseded_task_ids": [row.id for row in tasks if row.status == "Superseded"],
             "service_restored": True,
         }
         db.add(
