@@ -166,3 +166,25 @@ def test_independent_nutrition_lifecycle(
     assert not next(row for row in unchanged["plans"] if row["id"] == candidate["id"])["availability"][
         "usable"
     ]
+
+
+def test_no_supported_food_stops_before_inference(monkeypatch, member):
+    submit(member, facts())
+    monkeypatch.setattr("app.nutrition_runtime.food_catalogue", lambda: {})
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("No supported food must not dispatch inference")
+
+    monkeypatch.setattr("app.nutrition_runtime.generate", forbidden)
+    session = member.post("/api/conversations").json()
+    queued = member.post(
+        f"/api/conversations/{session['id']}/messages",
+        json={"key": str(uuid4()), "purpose": "Nutrition", "content": "Create a general meal example."},
+    )
+    assert queued.status_code == 202, queued.text
+    identifier = queued.json()["request_id"]
+    assert run_once(identifier)
+    status = member.get("/api/requests/" + identifier).json()
+    assert status["status"] == "Waiting" and status["model_calls"] == 0
+    assert "permissions or profile need review" in status["status_message"]
+    assert member.get("/api/me/plans").json()["current"]["version"] == 0
