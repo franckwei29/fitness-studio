@@ -1,16 +1,19 @@
 """Injected release records test atomic rollback mechanics, not live model quality."""
 
 from datetime import timedelta
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from app.admission import fingerprint
 from app.bootstrap import DEFAULT_CONFIGURATION, bootstrap
 from app.database import transaction
 from app.main import app
-from app.models import AgentVersion, Approval, ChangeRequest, MemberGroup, now
+from app.models import AgentVersion, Approval, ChangeRequest, Incident, MemberGroup, now
+from app.policy import PolicyDenied, verify_group_context
 from app.settings import get_settings
 
 
@@ -89,6 +92,15 @@ def test_rollback_restores_pinned_baseline_and_refuses_newer_configuration(
             assert change.status == ("RollbackBlocked" if newer_change else "RolledBack")
             if newer_change:
                 assert "rollback" not in change.execution
+                assert change.execution["service_health"] == "Degraded"
+                incident = db.scalar(
+                    select(Incident).where(Incident.evidence["release_id"].as_string() == change.id)
+                )
+                assert incident and incident.outcome == "Unresolved"
+                group = db.get(MemberGroup, group_id)
+                with pytest.raises(PolicyDenied, match="degraded"):
+                    verify_group_context(db, SimpleNamespace(role="Coach", input_versions={}), group, {})
+                verify_group_context(db, SimpleNamespace(role="Nutrition", input_versions={}), group, {})
                 change.status = "Stopped"
             else:
                 assert change.execution["rollback"]["verified"]

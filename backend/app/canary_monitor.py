@@ -4,9 +4,10 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import select
 
+from app.admission import fingerprint
 from app.agent_release import rollback_configuration
 from app.database import transaction
-from app.models import AuditEvent, ChangeRequest, ModelCall, WorkItem, now
+from app.models import AuditEvent, ChangeRequest, Incident, ModelCall, WorkItem, now
 from app.policy import PolicyDenied
 from app.pricing import UsageUncertain, price_for
 
@@ -98,7 +99,27 @@ def monitor_canaries(at=None):
                 except (PolicyDenied, UsageUncertain) as exc:
                     # The release must remain visibly unresolved, never claim a failed rollback succeeded.
                     change.status = "RollbackBlocked"
-                    change.execution = change.execution | {"rollback_blocked_reason": str(exc)}
+                    change.execution = change.execution | {
+                        "rollback_blocked_reason": str(exc),
+                        "service_health": "Degraded",
+                    }
+                    key = fingerprint({"release_id": change.id, "reason": "RollbackBlocked"})
+                    if not db.scalar(select(Incident.id).where(Incident.event_key == key)):
+                        db.add(
+                            Incident(
+                                event_key=key,
+                                title=f"{change.candidate['role']} release rollback needs attention",
+                                evidence={
+                                    "release_id": change.id,
+                                    "group_id": change.group_id,
+                                    "role": change.candidate["role"],
+                                    "agent_version_id": change.candidate["agent_version_id"],
+                                    "reason": "RollbackBlocked",
+                                    "service_health": "Degraded",
+                                    "observation": evidence,
+                                },
+                            )
+                        )
                     db.add(
                         AuditEvent(
                             actor_id="system",

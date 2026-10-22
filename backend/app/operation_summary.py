@@ -57,7 +57,7 @@ def summarize(db, start, end):
             .where(Member.status == "Accepted", User.active.is_(True))
         ),
         "unresolved_incidents_now": db.scalar(
-            select(func.count()).select_from(Incident).where(Incident.outcome != "Resolved")
+            select(func.count()).select_from(Incident).where(Incident.outcome != "Recovered")
         ),
         "settled_micros": sum(row["settled_micros"] for row in by_role.values()),
         "held_micros": sum(row["held_micros"] for row in by_role.values()),
@@ -68,7 +68,7 @@ def summarize(db, start, end):
             "Period counts use record creation time within the inclusive UTC dates shown.",
             "New members counts membership records created, including members whose admission later changed.",
             "Active members and unresolved incidents describe current state, not historical state at the period end.",
-            "Closed incidents without a verified Resolved outcome remain unresolved in this metric.",
+            "Closed incidents without a verified Recovered outcome remain unresolved in this metric.",
             "Plan versions created and successful activations are separate measures; a candidate is not a delivery.",
             "Costs cover calls created during the period, using their current settlement state. Held amounts are reservations, not known charges.",
             "Role and member cost breakdowns are alternative views of the same calls; do not add their totals together.",

@@ -2,7 +2,7 @@
 
 from sqlalchemy import select
 
-from app.models import Member, MemberGroup, ProfileSnapshot, User
+from app.models import ChangeRequest, Member, MemberGroup, ProfileSnapshot, User
 
 PROFILE_FIELDS = {
     "Intake": frozenset(
@@ -70,6 +70,23 @@ def authorize_tool(role, tool):
 
 
 def verify_group_context(db, item, group, versions):
+    configured = group.configuration.get("agent_versions", {}).get(item.role)
+    if configured:
+        failed = db.scalars(
+            select(ChangeRequest).where(
+                ChangeRequest.group_id == group.id,
+                ChangeRequest.kind == "AgentRelease",
+                ChangeRequest.status == "RollbackBlocked",
+            )
+        )
+        if any(
+            change.candidate.get("role") == item.role
+            and change.candidate.get("agent_version_id") == configured
+            for change in failed
+        ):
+            raise PolicyDenied(
+                "This role is degraded after a failed release rollback. An owner must restore a reviewed configuration before it can run."
+            )
     for key, expected in item.input_versions.items():
         if key in versions and expected is not None and expected != versions[key]:
             raise PolicyDenied("The task input has changed and must be refreshed.")

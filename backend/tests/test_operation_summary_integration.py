@@ -102,7 +102,7 @@ def test_period_boundaries_costs_and_brief_match(monkeypatch):
                     event_key=str(uuid4()),
                     title="Verified recovery",
                     status="Closed",
-                    outcome="Resolved",
+                    outcome="Recovered",
                     evidence={},
                 )
             )
