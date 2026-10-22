@@ -86,3 +86,5 @@ docker compose -p fitness-studio-test -f compose.yaml stop
 ```
 
 Application database names and host ports can be overridden with `DATABASE_NAME`, `DATABASE_PORT`, and `REDIS_PORT`. Local Python processes must use a matching `DATABASE_URL` and `REDIS_URL` when those values change. Docker application processes derive their internal database URL from `DATABASE_NAME`.
+
+For an independent acceptance environment, use a different Compose project name and a private environment file. Set `APP_ENV_FILE` to that file and select unused `DATABASE_PORT`, `REDIS_PORT`, and `WEB_PORT` values in it. Pass the same file through Compose's `--env-file` option. The separate project creates its own network and data volumes; do not reuse the main project's name. Never commit private environment files or demo account credentials.
