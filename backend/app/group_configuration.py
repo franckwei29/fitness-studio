@@ -59,6 +59,12 @@ def groups(user: User = Depends(owner)):
         return [view(row) for row in db.scalars(select(MemberGroup).order_by(MemberGroup.name))]
 
 
+@router.get("/group-policy")
+def group_policy(user: User = Depends(owner)):
+    """Expose the same fixed boundaries used to validate configuration changes."""
+    return {role: sorted(fields) for role, fields in PROFILE_FIELDS.items()}
+
+
 @router.get("/changes")
 def changes(user: User = Depends(owner)):
     with transaction() as db:

@@ -9,6 +9,7 @@ from app.bootstrap import DEFAULT_CONFIGURATION, bootstrap
 from app.database import transaction
 from app.main import app
 from app.models import MemberGroup
+from app.policy import PROFILE_FIELDS, filter_profile
 from app.settings import get_settings
 
 
@@ -26,8 +27,12 @@ def test_configuration_requires_approval_and_rejects_stale_baseline():
             json={"email": settings.owner_email, "password": settings.owner_password.get_secret_value()},
         ).json()
         client.headers["x-csrf-token"] = auth["csrf_token"]
+        policy = client.get("/api/owner/group-policy")
+        assert policy.status_code == 200
+        assert policy.json() == {role: sorted(fields) for role, fields in PROFILE_FIELDS.items()}
         candidate = deepcopy(DEFAULT_CONFIGURATION)
         candidate["review_required"] = True
+        candidate["field_permissions"] = {"Coach": ["goal"]}
         body = {"expected_version": 1, "configuration": candidate, "reason": "Enable candidate review"}
         first = client.post(f"/api/owner/groups/{group_id}/changes", json=body)
         assert first.status_code == 201
@@ -44,6 +49,11 @@ def test_configuration_requires_approval_and_rejects_stale_baseline():
             )
         execute_url = f"/api/owner/changes/{first['id']}/execute"
         assert client.post(execute_url).json()["execution"]["group_version"] == 2
+        with transaction() as db:
+            effective = db.get(MemberGroup, group_id).configuration
+            assert filter_profile("Coach", {"age": 30, "goal": "Build a routine"}, effective) == {
+                "goal": "Build a routine"
+            }
         assert client.post(execute_url).json()["execution"]["group_version"] == 2
         assert client.post(f"/api/owner/changes/{second['id']}/execute").status_code == 409
         invalid = deepcopy(candidate)
