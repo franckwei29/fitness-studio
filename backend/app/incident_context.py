@@ -1,5 +1,8 @@
 """Allowlisted incident facts for optional read-only operations explanations."""
 
+from typing import Annotated
+
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
 from app.models import Incident, ModelCall, Request, WorkItem
@@ -35,3 +38,24 @@ def incident_context(db, identifier):
         "settled_cost_micros": sum(call.actual_micros or 0 for call in calls if call.status == "Settled"),
         "instruction": "Explain observed facts separately from possible causes. Suggest checks, not automatic changes. Do not claim recovery, approval, configuration changes or model deployment occurred. The owner must use the explicit reviewed controls. This is a snapshot, not a live recovery verification.",
     }
+
+
+# Keep diagnosis categories separate from verified actions in the rendered reply.
+AnalysisItem = Annotated[str, Field(min_length=1, max_length=600)]
+
+
+class IncidentAnalysis(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    observed_facts: list[AnalysisItem] = Field(min_length=1, max_length=6)
+    possible_causes: list[AnalysisItem] = Field(min_length=1, max_length=6)
+    proposed_actions: list[AnalysisItem] = Field(min_length=1, max_length=6)
+
+    def reply_text(self):
+        return "\n\n".join(
+            heading + "\n" + "\n".join("• " + item for item in values)
+            for heading, values in [
+                ("Observed facts", self.observed_facts),
+                ("Possible causes — not verified", self.possible_causes),
+                ("Proposed checks — no changes executed", self.proposed_actions),
+            ]
+        )

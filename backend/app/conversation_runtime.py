@@ -129,8 +129,12 @@ def run_conversation(claim):
             return {"context": context, "input_versions": authorized["versions"]}
 
     def infer(state):
-        output, call_id = generate(claim, instruction, state["context"], ChatReply)
-        return {"candidate": {"reply": output.reply, "call_id": call_id}}
+        from app.incident_context import IncidentAnalysis
+
+        contract = IncidentAnalysis if state["context"].get("incident") else ChatReply
+        output, call_id = generate(claim, instruction, state["context"], contract)
+        reply = output.reply_text() if isinstance(output, IncidentAnalysis) else output.reply
+        return {"candidate": {"reply": reply, "call_id": call_id}}
 
     def validate(state):
         ChatReply(reply=state["candidate"]["reply"])
