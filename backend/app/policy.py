@@ -107,6 +107,9 @@ def execution_context(db, item, request):
     user = db.get(User, request.user_id)
     if not user or not user.active:
         raise PolicyDenied("The account is unavailable.")
+    from app.recovery_prerequisites import verify_prerequisites
+
+    verify_prerequisites(db, request.payload.get("recovery_prerequisites", []))
     role = item.role
     if role not in PROFILE_FIELDS:
         raise PolicyDenied("The assigned role is invalid.")

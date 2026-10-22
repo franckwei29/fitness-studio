@@ -45,7 +45,14 @@ def test_comparison_terminal_state_preserves_evidence(owner_client, ending):
         with transaction() as db:
             for identifier in requests:
                 db.get(Request, identifier).deadline = now() - timedelta(minutes=1)
-        expire_waits()
+        # The scheduler drains bounded batches, including earlier persisted test requests.
+        for _ in range(100):
+            expire_waits()
+            with transaction() as db:
+                if all(db.get(Request, identifier).status == "Stopped" for identifier in requests):
+                    break
+        else:
+            pytest.fail("Expiry batches did not converge on the expired comparison.")
     else:
         with transaction() as db:
             for identifier in requests:

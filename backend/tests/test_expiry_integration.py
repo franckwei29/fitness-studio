@@ -80,3 +80,38 @@ def test_expiry_closes_waits_without_releasing_unknown_usage():
         call = db.get(ModelCall, call_id)
         assert call.status == "UsageUnknown" and call.reserved_micros == 500 and call.actual_micros is None
         assert db.get(Approval, approval_id).decision == "Expired"
+
+
+def test_running_child_cannot_starve_expiry_batch():
+    from datetime import datetime
+
+    with transaction() as db:
+        user = User(
+            email=f"expiry-batch-{uuid4()}@example.test", display_name="Expiry Batch", password_hash="Unused"
+        )
+        db.add(user)
+        db.flush()
+        identifiers = []
+        for index, status in enumerate(["Running", "Waiting"]):
+            request = Request(
+                user_id=user.id, kind="Chat", status="Waiting", deadline=datetime(2000, 1, index + 1)
+            )
+            db.add(request)
+            db.flush()
+            identifiers.append(request.id)
+            db.add(
+                WorkItem(
+                    request_id=request.id,
+                    role="Intake",
+                    subject_kind="Test",
+                    subject_id=user.id,
+                    status=status,
+                )
+            )
+    expire_waits(batch_size=1)
+    with transaction() as db:
+        assert db.get(Request, identifiers[1]).status == "Stopped"
+        assert db.get(Request, identifiers[0]).status == "Waiting"
+        db.get(Request, identifiers[0]).status = "Cancelled"
+        work = db.scalar(select(WorkItem).where(WorkItem.request_id == identifiers[0]))
+        work.status = "Cancelled"

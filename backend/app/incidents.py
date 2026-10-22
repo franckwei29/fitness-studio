@@ -162,6 +162,54 @@ def verify_recovery(identifier: str, user: User = Depends(owner)):
         return view(incident)
 
 
+class RecoveryPrerequisites(BaseModel):
+    expected_fence: int = Field(ge=0)
+    change_ids: list[str] = Field(min_length=1, max_length=10)
+
+
+@router.post("/{identifier}/prerequisites")
+def set_prerequisites(identifier: str, body: RecoveryPrerequisites, user: User = Depends(owner)):
+    from app.models import ChangeRequest
+    from app.recovery_prerequisites import change_reference
+
+    with transaction() as db:
+        incident = db.scalar(select(Incident).where(Incident.id == identifier).with_for_update())
+        item = db.get(WorkItem, incident.evidence.get("work_id")) if incident else None
+        if (
+            not incident
+            or incident.status != "Open"
+            or not item
+            or item.status != "Waiting"
+            or item.fence != body.expected_fence
+        ):
+            raise HTTPException(409, "An unchanged waiting incident is required.")
+        references = []
+        if len(set(body.change_ids)) != len(body.change_ids):
+            raise HTTPException(422, "Choose each required change once.")
+        for change_id in body.change_ids:
+            change = db.get(ChangeRequest, change_id)
+            if (
+                not change
+                or change.kind not in {"GroupConfiguration", "AgentRelease"}
+                or change.group_id != item.input_versions.get("group_id")
+            ):
+                raise HTTPException(409, "Required changes must belong to the affected task group.")
+            if change.kind == "AgentRelease" and change.candidate.get("role") != item.role:
+                raise HTTPException(409, "The required release must match the affected role.")
+            references.append(change_reference(change))
+        incident.evidence = incident.evidence | {"required_changes": references}
+        db.add(
+            AuditEvent(
+                actor_id=user.id,
+                request_id=item.request_id,
+                event_type="incident.prerequisites_recorded",
+                subject_id=incident.id,
+                details={"required_changes": references},
+            )
+        )
+        return view(incident)
+
+
 class RecoveryRequest(BaseModel):
     expected_fence: int = Field(ge=0)
     reason: str = Field(min_length=1, max_length=3000)
@@ -200,9 +248,14 @@ def request_recovery(identifier: str, body: RecoveryRequest, user: User = Depend
                 409, "This task requires a revised candidate or available executor before recovery."
             )
         try:
+            from app.recovery_prerequisites import verify_prerequisites
+
+            references = incident.evidence.get("required_changes", [])
+            receipts = verify_prerequisites(db, references)
             execution_context(db, item, request)
         except PolicyDenied as exc:
             raise HTTPException(409, str(exc)) from None
+        request.payload = request.payload | {"recovery_prerequisites": references}
         item.status = request.status = "Queued"
         item.wait_reason = None
         item.fence += 1
@@ -213,6 +266,7 @@ def request_recovery(identifier: str, body: RecoveryRequest, user: User = Depend
             "reason": body.reason,
             "service_restored": False,
             "fence": item.fence,
+            "prerequisite_receipts": receipts,
         }
         db.add(
             AuditEvent(

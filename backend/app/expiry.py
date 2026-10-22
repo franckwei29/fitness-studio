@@ -1,6 +1,6 @@
 """Close expired waits without dispatching models or altering usage evidence."""
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 
 from app.database import transaction
 from app.models import Approval, Request, WorkItem, now
@@ -17,7 +17,15 @@ def expire_waits(at=None, batch_size=100):
         identifiers = list(
             db.scalars(
                 select(Request.id)
-                .where(Request.status.in_(WAITING_STATES), Request.deadline <= at)
+                .where(
+                    Request.status.in_(WAITING_STATES),
+                    Request.deadline <= at,
+                    ~exists(
+                        select(WorkItem.id).where(
+                            WorkItem.request_id == Request.id, WorkItem.status == "Running"
+                        )
+                    ),
+                )
                 .order_by(Request.deadline, Request.id)
                 .limit(batch_size)
             )
