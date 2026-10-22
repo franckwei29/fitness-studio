@@ -10,6 +10,7 @@ This record distinguishes implementation checks from complete acceptance. It is 
 - A separate local acceptance environment has six settled Gemini calls across Intake, Coach, Nutrition and Technical Manager. Its recorded total is US$0.008749. This is that environment's total, not an account-wide billing statement. The requests cover Chinese intake, coordinated planning including one invalid-candidate correction, Chinese-input English-output Coach explanation, and a separately authorized read-only operations explanation.
 - Real local member and owner sessions loaded 13 navigation destinations without page errors. This verifies basic authenticated navigation, not every mutation.
 - A committed source archive at `7e5db09` started in a new directory with new MySQL and Redis volumes and no model key. Owner login, member registration, confirmed intake and readiness passed. Its API, worker, scheduler and Redis were restarted; the session, messages, waiting task, original deadline and single attempt survived, with zero model calls. Later source revisions still require the final clean-source main-flow check.
+- A second independent deployment now matches all 107 tracked runtime files at `fd526fc`. Real owner-approved admission survived service restarts. A real two-call Gemini combined request passed validation and was activated through the member browser with no page errors. Its environment also retains an earlier timed-out Nutrition call as UsageUnknown; the local slot was released only after the server's five-minute cooldown, and its US$0.478413 hold remains. Recorded settled spend is US$0.006637, which excludes the unknown charge. The worker is running with a six-call daily limit and US$1 global ceiling.
 - Credentials, private runtime evidence and screenshots remain outside tracked source. No API keys or demo passwords belong in this document.
 
 ## Scenario mapping
@@ -57,7 +58,7 @@ The named checks establish the stated scope only. The open gates below remain ma
 | T37 | Queue tests fence stale claims and retain unknown calls; clean-source service restart preserved a waiting task and session. | `test_settled_output_recovery_integration.py` simulates settled-output/pre-publication failure, recreates connections and reclaims the lease; the gateway reuses the persisted output with reservation and transport forbidden, preserving one call and its cost. Actual full process-kill-to-publication verification remains. |
 | T38 | Policy filters and redacted export tests exclude profile/text/secrets; graph execution suppresses raw external tracing. | Inspect final actual model payload boundaries; external LangSmith ingestion remains optional and not live-verified. |
 | T39 | All four roles have settled live Gemini records with recorded usage. | This does not prove every optional workflow or model-quality criterion. |
-| T40 | Clean source and empty volumes passed startup/login/intake/restart. | Latest-source complete member/owner main flow still required. |
+| T40 | Clean source and empty volumes passed startup/login/intake/restart. | The independent deployment matches `fd526fc` runtime files and passed real registration, owner-reviewed admission, restart, two-call planning, browser pair activation and owner overview. Remaining feature-specific gates elsewhere in this record still apply. |
 
 ## Completion gates still open
 
