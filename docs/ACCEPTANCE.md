@@ -4,7 +4,7 @@ This record distinguishes implementation checks from complete acceptance. It is 
 
 ## Current evidence
 
-- The consolidated backend run including bounded owner revisions completed with **229 passing tests**. Five additional lifecycle-message precedence cases passed in a separate focused run. The frontend production build also passed. These counts are not a claim of complete scenario coverage.
+- At application revision `0ab3df8`, the complete backend suite passed **246 tests** and the browser suite passed **21 tests**. The frontend production build passed. These counts are not a claim of complete scenario coverage.
 - The isolated backend suite exercises real MySQL transactions and Redis task state with provider calls disabled. Run it with `.venv/bin/python scripts/test_backend.py` from the application root.
 - Browser scenarios live in `frontend/e2e`; run `npx --no-install playwright test` from `frontend`. Most use explicit API presentation fixtures. `member.spec.ts` uses the local application. Tests state their evidence boundaries.
 - A separate local acceptance environment has six settled Gemini calls across Intake, Coach, Nutrition and Technical Manager. Its recorded total is US$0.008749. This is that environment's total, not an account-wide billing statement. The requests cover Chinese intake, coordinated planning including one invalid-candidate correction, Chinese-input English-output Coach explanation, and a separately authorized read-only operations explanation.
