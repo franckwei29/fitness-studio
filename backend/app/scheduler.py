@@ -12,9 +12,11 @@ logger = logging.getLogger("fitness_studio.scheduler")
 
 def scheduled_maintenance():
     from app.canary_monitor import monitor_canaries
+    from app.expiry import expire_waits
+    from app.work_queue import recover_expired
 
     created = 0
-    for operation in (generate_reminders, monitor_canaries):
+    for operation in (recover_expired, expire_waits, generate_reminders, monitor_canaries):
         try:
             count = operation()
             if operation is generate_reminders:
