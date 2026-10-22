@@ -72,6 +72,7 @@ EVENTS = {
     "cancelled",
     "model.response_failed",
     "task.execution_failed",
+    "task.policy_rejected",
     "request.cancelled",
     "candidate.correction_queued",
     "plans.activated",

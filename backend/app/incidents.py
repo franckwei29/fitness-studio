@@ -12,30 +12,34 @@ from app.security import owner
 router = APIRouter(prefix="/api/owner/incidents")
 
 
+def record_incident_in_transaction(db, item, reason):
+    key = fingerprint({"work_id": item.id, "reason": reason})
+    previous = db.scalar(select(Incident).where(Incident.event_key == key))
+    if previous:
+        return previous.id
+    incident = Incident(
+        event_key=key,
+        request_id=item.request_id,
+        title=f"{item.role} request needs attention",
+        evidence={
+            "work_id": item.id,
+            "role": item.role,
+            "reason": reason,
+            "attempts": item.attempts,
+            "fence": item.fence,
+        },
+    )
+    db.add(incident)
+    db.flush()
+    return incident.id
+
+
 def record_incident(claim, reason):
-    key = fingerprint({"work_id": claim.work_id, "reason": reason})
     with transaction() as db:
         item = db.scalar(select(WorkItem).where(WorkItem.id == claim.work_id).with_for_update())
         if not item:
             return
-        previous = db.scalar(select(Incident).where(Incident.event_key == key))
-        if previous:
-            return previous.id
-        incident = Incident(
-            event_key=key,
-            request_id=item.request_id,
-            title=f"{item.role} request needs attention",
-            evidence={
-                "work_id": item.id,
-                "role": item.role,
-                "reason": reason,
-                "attempts": item.attempts,
-                "fence": item.fence,
-            },
-        )
-        db.add(incident)
-        db.flush()
-        return incident.id
+        return record_incident_in_transaction(db, item, reason)
 
 
 @router.get("")

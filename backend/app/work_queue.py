@@ -6,7 +6,7 @@ from datetime import timedelta
 from sqlalchemy import select
 
 from app.database import transaction
-from app.models import ModelCall, Request, RequestEvent, User, WorkItem, now
+from app.models import AuditEvent, ModelCall, Request, RequestEvent, User, WorkItem, now
 from app.policy import PolicyDenied, execution_context
 
 
@@ -24,6 +24,21 @@ class StaleClaim(Exception):
 
 def event(db, request, kind, **payload):
     db.add(RequestEvent(request_id=request.id, event_type=kind, payload=payload))
+
+
+def record_policy_rejection(db, item, request, stage):
+    from app.incidents import record_incident_in_transaction
+
+    db.add(
+        AuditEvent(
+            actor_id="system",
+            request_id=request.id,
+            subject_id=item.id,
+            event_type="task.policy_rejected",
+            details={"role": item.role, "stage": stage, "reason": "PolicyReview"},
+        )
+    )
+    record_incident_in_transaction(db, item, "PolicyReview")
 
 
 def claim_next(lease_seconds=120, request_id=None):
@@ -54,6 +69,7 @@ def claim_next(lease_seconds=120, request_id=None):
         except PolicyDenied as exc:
             item.status = request.status = "Waiting"
             item.wait_reason = "PolicyReview"
+            record_policy_rejection(db, item, request, "claim")
             event(db, request, "waiting", status="Waiting", reason=str(exc))
             return None
         item.input_versions = item.input_versions | context["versions"]
@@ -95,6 +111,8 @@ def wait_for(claim, reason):
         item.status = request.status = "Waiting"
         item.wait_reason = reason
         item.lease_until = None
+        if reason == "PolicyReview":
+            record_policy_rejection(db, item, request, "execution")
         event(db, request, "waiting", status="Waiting", reason=reason, role=item.role)
 
 
