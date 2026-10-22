@@ -1,6 +1,6 @@
 """Bind direct revisions to an exact active baseline and role-specific feedback."""
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 
 from app.activation import plan_fingerprint
 from app.models import CurrentPlans, Observation, PlanVersion
@@ -35,17 +35,33 @@ def revision_context(db, request, authorized, role):
     if plan and (plan.member_id != authorized["member_id"] or plan.fingerprint != plan_fingerprint(plan)):
         raise PolicyDenied("The previous plan contents no longer match their recorded version.")
     kind = "TrainingFeedback" if role == "Coach" else "NutritionFeedback"
-    feedback = list(
-        db.scalars(
-            select(Observation)
-            .where(
-                Observation.member_id == authorized["member_id"],
-                Observation.kind == kind,
-                Observation.status == "Confirmed",
-            )
-            .order_by(Observation.created_at.desc())
-            .limit(20)
+    matching_plan = and_(
+        Observation.kind == kind,
+        Observation.content["plan_id"].as_string() == identifier,
+    )
+    if role == "Coach":
+        matching_plan = or_(
+            matching_plan,
+            and_(
+                Observation.kind == "CycleFeedback",
+                Observation.content["training_id"].as_string() == identifier,
+            ),
         )
+    feedback = (
+        list(
+            db.scalars(
+                select(Observation)
+                .where(
+                    Observation.member_id == authorized["member_id"],
+                    matching_plan,
+                    Observation.status == "Confirmed",
+                )
+                .order_by(Observation.created_at.desc(), Observation.id.desc())
+                .limit(20)
+            )
+        )
+        if identifier
+        else []
     )
     return {
         "previous_plan": None
@@ -56,10 +72,6 @@ def revision_context(db, request, authorized, role):
             "profile_version": plan.profile_version,
             "content": plan.content,
         },
-        "confirmed_feedback": [
-            {"id": row.id, "content": row.content}
-            for row in feedback
-            if row.content.get("plan_id") == identifier
-        ],
+        "confirmed_feedback": [{"id": row.id, "kind": row.kind, "content": row.content} for row in feedback],
         "revision_instruction": "Use the previous plan and confirmed feedback as context. Follow the current confirmed profile constraints. Explain what changes and why; do not invent completion records.",
     }
