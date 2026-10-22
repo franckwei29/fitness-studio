@@ -50,6 +50,8 @@ def principal(request: Request) -> User:
         if not session:
             raise HTTPException(401, "Please sign in to continue.")
         user = db.get(User, session.user_id)
+        if user:
+            request.state.actor_id = user.id
         if not user or not user.active:
             raise HTTPException(401, "This account is unavailable.")
         if request.method not in {"GET", "HEAD", "OPTIONS"}:

@@ -4,7 +4,9 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.access_audit import access_exception_handler
 from app.admission import router as admission_router
 from app.agent_release import router as release_router
 from app.budget_admin import router as budget_router
@@ -30,6 +32,7 @@ from app.usage_admin import router as usage_router
 from app.version_admin import router as version_router
 
 app = FastAPI(title="Fitness Studio", version="0.1.0")
+app.add_exception_handler(StarletteHTTPException, access_exception_handler)
 
 
 class Credentials(BaseModel):
