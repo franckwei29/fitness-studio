@@ -1,0 +1,9 @@
+import { useEffect, useState } from 'react';
+import { api } from './api';
+type Call={id:string;role:string;model:string;reserved_micros:number;local_slot_held:boolean;can_release_local_slot:boolean};
+export function UnknownUsage(){
+ const [rows,setRows]=useState<Call[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+ async function load(){setRows(await api<Call[]>('/owner/unknown-usage'));}
+ useEffect(()=>{load().catch(e=>setError(e.message));},[]);
+ return <section><h2>Unknown provider usage</h2><p className="muted">Unknown charges keep their full budget reservation. Releasing a stopped local execution slot permits other work; it does not refund funds, resolve provider billing, or retry the original request.</p>{error&&<p role="alert" className="error">{error}</p>}<button className="text-button" onClick={()=>load().catch(e=>setError(e.message))}>Refresh unknown calls</button>{!rows.length&&<p className="muted">No unknown calls are recorded.</p>}{rows.map(row=><article className="plan-card" key={row.id}><h3>{row.role} · {row.model}</h3><p>Call reference: {row.id}</p><p>Reserved: ${(row.reserved_micros/1000000).toFixed(6)}. Local slot: {row.local_slot_held?'held':'released'}.</p>{row.local_slot_held&&<form onSubmit={async event=>{event.preventDefault();const fields=new FormData(event.currentTarget);setBusy(true);setError('');try{await api(`/owner/unknown-usage/${row.id}/release-slot`,{reason:fields.get('reason')});await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}><label>Reason for releasing the local slot<textarea name="reason" required minLength={10} maxLength={2000}/></label><button className="primary" disabled={busy||!row.can_release_local_slot}>Release slot and keep funds reserved</button>{!row.can_release_local_slot&&<p className="muted">Wait until the call is at least five minutes old and its local task has stopped.</p>}</form>}</article>)}</section>;
+}

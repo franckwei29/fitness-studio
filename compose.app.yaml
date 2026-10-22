@@ -1,0 +1,50 @@
+x-app: &app
+  build: ./backend
+  image: fitness-studio-api:local
+  env_file: .env
+  environment:
+    DATABASE_URL: mysql+pymysql://studio:${DATABASE_PASSWORD:?Set DATABASE_PASSWORD}@mysql:3306/${DATABASE_NAME:-fitness_studio}
+    REDIS_URL: redis://redis:6379/0
+  restart: unless-stopped
+
+services:
+  initialize:
+    <<: *app
+    restart: "no"
+    command: ["sh", "-c", "alembic upgrade head && python -m app.bootstrap"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+  api:
+    <<: *app
+    depends_on:
+      initialize:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  worker:
+    <<: *app
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      api:
+        condition: service_healthy
+  scheduler:
+    <<: *app
+    command: ["python", "-m", "app.scheduler"]
+    depends_on:
+      api:
+        condition: service_healthy
+  web:
+    build: ./frontend
+    image: fitness-studio-web:local
+    ports:
+      - "127.0.0.1:8088:80"
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy

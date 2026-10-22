@@ -1,0 +1,12 @@
+{
+  "version": "studio-basic-strength-v1",
+  "record_count": 7,
+  "source_url": "https://www.nhs.uk/live-well/exercise/strength-exercises/",
+  "source_reviewed": "2026-10-22",
+  "attribution": "Exercise selection informed by NHS Strength exercises. Instructions are brief application-written summaries.",
+  "limitations": [
+    "This initial catalogue supports basic home strength exercises, not rehabilitation or prescribed exercise.",
+    "A stable chair, wall, or dumbbells must be explicitly confirmed as available.",
+    "This catalogue does not establish individual clinical suitability."
+  ]
+}

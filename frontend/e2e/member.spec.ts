@@ -1,0 +1,34 @@
+import { test, expect } from '@playwright/test';
+
+test('member registers, confirms intake, and retains a conversation',async({page})=>{
+  const errors:string[]=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  await page.goto('/');
+  await page.getByRole('button',{name:'New here? Create an account'}).click();
+  await page.getByLabel('Full name').fill('Browser Test Member');
+  await page.getByLabel('Email address').fill(`browser-${Date.now()}@example.test`);
+  await page.getByLabel('Password',{exact:true}).fill('Browser-test-123!');
+  await page.getByRole('button',{name:'Create account',exact:true}).click();
+  await expect(page.getByRole('button',{name:'My profile & intake'})).toBeVisible();
+  await page.getByRole('button',{name:'My profile & intake'}).click();
+  await page.getByRole('button',{name:'Start my intake'}).click();
+  await page.getByLabel('Age',{exact:true}).fill('28');
+  await page.getByLabel('Training experience').selectOption('Beginner');
+  await page.getByLabel('Available days per week').fill('3');
+  await page.getByLabel('Minutes per session').fill('45');
+  await page.getByLabel('Your main goal').fill('Build strength');
+  await page.getByLabel('Available equipment').fill('Dumbbells');
+  for(const group of await page.getByRole('group').all())await group.getByLabel('No',{exact:true}).check();
+  await page.getByLabel('I have reviewed these details and confirm they are accurate.').check();
+  await page.getByRole('button',{name:'Confirm my details'}).click();
+  await expect(page.getByText('Your confirmed profile is ready for planning.')).toBeVisible();
+  await page.getByRole('button',{name:'New conversation'}).click();
+  await page.getByRole('textbox',{name:'Message',exact:true}).fill('我想每周训练三天');
+  await page.getByRole('button',{name:'Send message'}).click();
+  await expect(page.getByText('我想每周训练三天',{exact:true})).toBeVisible();
+  await expect(page.getByText('Your request is queued.')).toBeVisible();
+  await page.reload();
+  await page.getByRole('button',{name:'Your fitness journey'}).click();
+  await expect(page.getByText('我想每周训练三天',{exact:true})).toBeVisible();
+  expect(errors).toEqual([]);
+});

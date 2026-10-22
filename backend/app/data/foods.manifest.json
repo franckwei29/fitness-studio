@@ -1,0 +1,21 @@
+{
+  "name": "AUSNUT 2023 selected foods",
+  "version": "ausnut-2023-studio-v1",
+  "attribution": "Food Standards Australia New Zealand",
+  "license": "CC BY 4.0",
+  "license_url": "https://www.foodstandards.gov.au/legal-policies/copyright",
+  "source_url": "https://www.foodstandards.gov.au/sites/default/files/2025-09/AUSNUT%202023%20-%20Food%20nutrient%20profiles.xlsx?v=20250903",
+  "source_records_sha256": "933e5ef6bf362a9f2bc3217097a8116ad45d890d06d9d303b184025e1d04d1bd",
+  "record_count": 10,
+  "basis": "Per 100 g edible portion in the named preparation state. Energy includes dietary fibre; available carbohydrate excludes sugar alcohols.",
+  "transformations": [
+    "Ten supported single-food entries selected by public food key.",
+    "Energy converted from kJ to kcal by dividing by 4.184.",
+    "Allergen and dietary tags are application annotations, not FSANZ nutrient measurements. Oats are conservatively excluded for gluten restrictions."
+  ],
+  "limitations": [
+    "Not an exhaustive allergen database; product labels and cross-contact information must be checked.",
+    "No FSANZ endorsement is implied.",
+    "Amounts describe edible portions; cooked and uncooked weights are not interchangeable."
+  ]
+}

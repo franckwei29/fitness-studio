@@ -1,0 +1,154 @@
+[
+  {
+    "id": "F000114",
+    "name": "Apple, unpeeled, raw, not further defined",
+    "energy_kcal_per_100g": "53.776291",
+    "protein_g_per_100g": "0.3",
+    "carbohydrate_g_per_100g": "11.8",
+    "fat_g_per_100g": "0",
+    "allergens": [],
+    "dietary_tags": [
+      "Vegan",
+      "Vegetarian"
+    ],
+    "source_url": "https://www.foodstandards.gov.au/sites/default/files/2025-09/AUSNUT%202023%20-%20Food%20nutrient%20profiles.xlsx?v=20250903",
+    "catalogue_version": "ausnut-2023-studio-v1"
+  },
+  {
+    "id": "F000262",
+    "name": "Banana, cavendish, peeled, raw",
+    "energy_kcal_per_100g": "95.363289",
+    "protein_g_per_100g": "1.4",
+    "carbohydrate_g_per_100g": "19.9",
+    "fat_g_per_100g": "0.2",
+    "allergens": [],
+    "dietary_tags": [
+      "Vegan",
+      "Vegetarian"
+    ],
+    "source_url": "https://www.foodstandards.gov.au/sites/default/files/2025-09/AUSNUT%202023%20-%20Food%20nutrient%20profiles.xlsx?v=20250903",
+    "catalogue_version": "ausnut-2023-studio-v1"
+  },
+  {
+    "id": "F001900",
+    "name": "Broccoli, fresh, boiled, microwaved or steamed, drained",
+    "energy_kcal_per_100g": "23.900574",
+    "protein_g_per_100g": "2.9",
+    "carbohydrate_g_per_100g": "1.2",
+    "fat_g_per_100g": "0.3",
+    "allergens": [],
+    "dietary_tags": [
+      "Vegan",
+      "Vegetarian"
+    ],
+    "source_url": "https://www.foodstandards.gov.au/sites/default/files/2025-09/AUSNUT%202023%20-%20Food%20nutrient%20profiles.xlsx?v=20250903",
+    "catalogue_version": "ausnut-2023-studio-v1"
+  },
+  {
+    "id": "F002275",
+    "name": "Carrot, boiled, microwaved or steamed, drained",
+    "energy_kcal_per_100g": "33.221797",
+    "protein_g_per_100g": "1.1",
+    "carbohydrate_g_per_100g": "5.1",
+    "fat_g_per_100g": "0.3",
+    "allergens": [],
+    "dietary_tags": [
+      "Vegan",
+      "Vegetarian"
+    ],
+    "source_url": "https://www.foodstandards.gov.au/sites/default/files/2025-09/AUSNUT%202023%20-%20Food%20nutrient%20profiles.xlsx?v=20250903",
+    "catalogue_version": "ausnut-2023-studio-v1"
+  },
+  {
+    "id": "F002592",
+    "name": "Chicken, breast, lean, baked, roasted, fried, grilled or BBQ'd, no added fat",
+    "energy_kcal_per_100g": "158.460803",
+    "protein_g_per_100g": "34.5",
+    "carbohydrate_g_per_100g": "0.7",
+    "fat_g_per_100g": "1.8",
+    "allergens": [],
+    "dietary_tags": [],
+    "source_url": "https://www.foodstandards.gov.au/sites/default/files/2025-09/AUSNUT%202023%20-%20Food%20nutrient%20profiles.xlsx?v=20250903",
+    "catalogue_version": "ausnut-2023-studio-v1"
+  },
+  {
+    "id": "F003721",
+    "name": "Egg, chicken, whole, hard-boiled",
+    "energy_kcal_per_100g": "135.994264",
+    "protein_g_per_100g": "12.4",
+    "carbohydrate_g_per_100g": "0.7",
+    "fat_g_per_100g": "9.4",
+    "allergens": [
+      "Egg"
+    ],
+    "dietary_tags": [
+      "Vegetarian"
+    ],
+    "source_url": "https://www.foodstandards.gov.au/sites/default/files/2025-09/AUSNUT%202023%20-%20Food%20nutrient%20profiles.xlsx?v=20250903",
+    "catalogue_version": "ausnut-2023-studio-v1"
+  },
+  {
+    "id": "F005177",
+    "name": "Lentil, dried, cooked",
+    "energy_kcal_per_100g": "92.017208",
+    "protein_g_per_100g": "7.3",
+    "carbohydrate_g_per_100g": "11.9",
+    "fat_g_per_100g": "0.5",
+    "allergens": [],
+    "dietary_tags": [
+      "Vegan",
+      "Vegetarian"
+    ],
+    "source_url": "https://www.foodstandards.gov.au/sites/default/files/2025-09/AUSNUT%202023%20-%20Food%20nutrient%20profiles.xlsx?v=20250903",
+    "catalogue_version": "ausnut-2023-studio-v1"
+  },
+  {
+    "id": "F005614",
+    "name": "Milk, cow, fluid, reduced fat (~1%)",
+    "energy_kcal_per_100g": "43.260038",
+    "protein_g_per_100g": "3.3",
+    "carbohydrate_g_per_100g": "4.8",
+    "fat_g_per_100g": "1.2",
+    "allergens": [
+      "Milk"
+    ],
+    "dietary_tags": [
+      "Vegetarian"
+    ],
+    "source_url": "https://www.foodstandards.gov.au/sites/default/files/2025-09/AUSNUT%202023%20-%20Food%20nutrient%20profiles.xlsx?v=20250903",
+    "catalogue_version": "ausnut-2023-studio-v1"
+  },
+  {
+    "id": "F006143",
+    "name": "Oats, rolled, uncooked",
+    "energy_kcal_per_100g": "373.804971",
+    "protein_g_per_100g": "12.2",
+    "carbohydrate_g_per_100g": "54.5",
+    "fat_g_per_100g": "9.5",
+    "allergens": [
+      "Oats",
+      "Gluten"
+    ],
+    "dietary_tags": [
+      "Vegan",
+      "Vegetarian"
+    ],
+    "source_url": "https://www.foodstandards.gov.au/sites/default/files/2025-09/AUSNUT%202023%20-%20Food%20nutrient%20profiles.xlsx?v=20250903",
+    "catalogue_version": "ausnut-2023-studio-v1"
+  },
+  {
+    "id": "F007661",
+    "name": "Rice, white, cooked",
+    "energy_kcal_per_100g": "157.504780",
+    "protein_g_per_100g": "3.1",
+    "carbohydrate_g_per_100g": "34.7",
+    "fat_g_per_100g": "0.2",
+    "allergens": [],
+    "dietary_tags": [
+      "Vegan",
+      "Vegetarian"
+    ],
+    "source_url": "https://www.foodstandards.gov.au/sites/default/files/2025-09/AUSNUT%202023%20-%20Food%20nutrient%20profiles.xlsx?v=20250903",
+    "catalogue_version": "ausnut-2023-studio-v1"
+  }
+]

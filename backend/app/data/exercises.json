@@ -1,0 +1,93 @@
+[
+  {
+    "id": "sit-to-stand",
+    "name": "Sit to stand",
+    "equipment": [
+      "Stable chair"
+    ],
+    "instructions": [
+      "Begin seated with feet supported.",
+      "Rise using your legs, then lower yourself with control."
+    ],
+    "source_url": "https://www.nhs.uk/live-well/exercise/strength-exercises/",
+    "catalogue_version": "studio-basic-strength-v1"
+  },
+  {
+    "id": "mini-squat",
+    "name": "Supported mini squat",
+    "equipment": [
+      "Stable chair"
+    ],
+    "instructions": [
+      "Use the chair back for balance.",
+      "Bend your knees within a comfortable range, then return upright."
+    ],
+    "source_url": "https://www.nhs.uk/live-well/exercise/strength-exercises/",
+    "catalogue_version": "studio-basic-strength-v1"
+  },
+  {
+    "id": "calf-raise",
+    "name": "Supported calf raise",
+    "equipment": [
+      "Stable chair"
+    ],
+    "instructions": [
+      "Balance with the chair back.",
+      "Raise your heels slowly and lower them with control."
+    ],
+    "source_url": "https://www.nhs.uk/live-well/exercise/strength-exercises/",
+    "catalogue_version": "studio-basic-strength-v1"
+  },
+  {
+    "id": "side-leg-lift",
+    "name": "Supported sideways leg lift",
+    "equipment": [
+      "Stable chair"
+    ],
+    "instructions": [
+      "Hold the chair for balance.",
+      "Lift one leg sideways without leaning, lower it, and switch sides."
+    ],
+    "source_url": "https://www.nhs.uk/live-well/exercise/strength-exercises/",
+    "catalogue_version": "studio-basic-strength-v1"
+  },
+  {
+    "id": "standing-leg-extension",
+    "name": "Standing leg extension",
+    "equipment": [
+      "Stable chair"
+    ],
+    "instructions": [
+      "Use the chair for balance.",
+      "Move one straight leg behind you without arching your back; alternate sides."
+    ],
+    "source_url": "https://www.nhs.uk/live-well/exercise/strength-exercises/",
+    "catalogue_version": "studio-basic-strength-v1"
+  },
+  {
+    "id": "wall-press-up",
+    "name": "Wall press-up",
+    "equipment": [
+      "Wall"
+    ],
+    "instructions": [
+      "Face a wall with palms at chest height.",
+      "Bend your elbows to approach the wall, then push away slowly."
+    ],
+    "source_url": "https://www.nhs.uk/live-well/exercise/strength-exercises/",
+    "catalogue_version": "studio-basic-strength-v1"
+  },
+  {
+    "id": "biceps-curl",
+    "name": "Light dumbbell biceps curl",
+    "equipment": [
+      "Dumbbells"
+    ],
+    "instructions": [
+      "Keep your upper arms near your torso.",
+      "Lift the weights toward your shoulders, then lower them slowly."
+    ],
+    "source_url": "https://www.nhs.uk/live-well/exercise/strength-exercises/",
+    "catalogue_version": "studio-basic-strength-v1"
+  }
+]
