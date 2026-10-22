@@ -108,6 +108,10 @@ def run_conversation(claim):
                 context["agent_version_id"] = version.id
                 counts = dict(db.execute(select(Request.status, func.count()).group_by(Request.status)).all())
                 budgets = list(db.scalars(select(BudgetAccount).where(BudgetAccount.scope_key == "global")))
+                if request.payload.get("incident_id"):
+                    from app.incident_context import incident_context
+
+                    context["incident"] = incident_context(db, request.payload["incident_id"])
                 context["operations"] = {
                     "request_counts": counts,
                     "global_budget": [

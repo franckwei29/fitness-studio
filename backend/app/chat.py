@@ -153,6 +153,7 @@ class Submission(BaseModel):
         "Chat"
     )
     operations_group_id: str | None = None
+    incident_id: str | None = None
 
 
 @router.post("/conversations/{identifier}/messages", status_code=202)
@@ -167,6 +168,7 @@ def submit_message(identifier: str, body: Submission, user: User = Depends(princ
                 "content": body.content,
                 "purpose": body.purpose,
                 "operations_group_id": body.operations_group_id,
+                **({"incident_id": body.incident_id} if body.incident_id else {}),
             }
         )
         previous = db.scalar(
@@ -183,6 +185,13 @@ def submit_message(identifier: str, body: Submission, user: User = Depends(princ
         member = db.scalar(select(Member).where(Member.user_id == user.id))
         if body.operations_group_id and user.role != "Owner":
             raise HTTPException(403, "Only owners can select operations agent configurations.")
+        if body.incident_id:
+            from app.models import Incident
+
+            if user.role != "Owner" or body.purpose != "Operations":
+                raise HTTPException(403, "Incident analysis requires an owner operations request.")
+            if not db.get(Incident, body.incident_id):
+                raise HTTPException(404, "Incident not found.")
         operations_group = None
         if user.role == "Owner":
             operations_group = (
@@ -236,6 +245,7 @@ def submit_message(identifier: str, body: Submission, user: User = Depends(princ
                 "role": role,
                 "operations_group_id": operations_group.id if operations_group else None,
                 "requested_purpose": body.purpose,
+                **({"incident_id": body.incident_id} if body.incident_id else {}),
                 **({"plan_baseline": baseline} if baseline is not None else {}),
             },
         )
