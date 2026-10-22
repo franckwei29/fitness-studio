@@ -17,7 +17,7 @@ function Content({value,labels={}}:{value:unknown;labels?:Record<string,string>}
 export function Plans(){
  const [data,setData]=useState<PlansData|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(''),[notice,setNotice]=useState('');
  async function load(){setData(await api<PlansData>('/me/plans'));}
- useEffect(()=>{load().catch(e=>setError(e.message));},[]);
+ useEffect(()=>{let disposed=false;const refresh=()=>api<PlansData>('/me/plans').then(value=>{if(!disposed)setData(value);}).catch(e=>{if(!disposed)setError(e.message);});void refresh();const timer=setInterval(()=>void refresh(),15000);return()=>{disposed=true;clearInterval(timer);};},[]);
  async function confirm(pair:Pair){
   const plan=data?.plans.find(row=>row.id===pair.nutrition_id);if(!data?.current||!plan)return;
   setBusy(pair.id);setError('');setNotice('');
