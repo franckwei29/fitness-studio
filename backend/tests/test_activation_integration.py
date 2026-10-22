@@ -203,3 +203,88 @@ def test_standalone_training_activation(candidate, disabled_nutrition):
         assert current.pair_id is None
         if disabled_nutrition:
             assert db.get(PlanVersion, pair.nutrition_id) is not None
+
+
+def test_activation_commit_failure_rolls_back_both_plans_and_receipt(candidate):
+    from sqlalchemy import event, func, select
+    from sqlalchemy.orm import Session
+
+    from app.models import Activation, AuditEvent
+
+    def fail_activation_commit(db, context, instances):
+        if any(isinstance(row, Activation) and row.member_id == candidate["member_id"] for row in db.new):
+            raise RuntimeError("Synthetic activation commit failure")
+
+    event.listen(Session, "before_flush", fail_activation_commit)
+    try:
+        with pytest.raises(RuntimeError, match="Synthetic activation commit failure"):
+            activate_pair(**candidate)
+    finally:
+        event.remove(Session, "before_flush", fail_activation_commit)
+    with transaction() as db:
+        current = db.get(CurrentPlans, candidate["member_id"])
+        assert current.version == 0
+        assert current.training_id is None and current.nutrition_id is None and current.pair_id is None
+        pair = db.get(PlanPair, candidate["pair_id"])
+        assert pair.status == "Candidate"
+        assert all(
+            db.get(PlanVersion, identifier).status == "Validated"
+            for identifier in (pair.training_id, pair.nutrition_id)
+        )
+        assert (
+            db.scalar(
+                select(func.count())
+                .select_from(Activation)
+                .where(Activation.member_id == candidate["member_id"])
+            )
+            == 0
+        )
+        assert (
+            db.scalar(
+                select(func.count())
+                .select_from(AuditEvent)
+                .where(AuditEvent.subject_id == pair.id, AuditEvent.event_type == "plans.activated")
+            )
+            == 0
+        )
+    confirmed = activate_pair(**candidate)
+    assert confirmed["current_version"] == 1
+    assert activate_pair(**candidate) == confirmed
+
+
+@pytest.mark.parametrize("same_key", [True, False])
+def test_concurrent_pair_confirmation_changes_current_plans_once(candidate, same_key):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    from sqlalchemy import func, select
+
+    from app.models import Activation
+
+    barrier = Barrier(2)
+
+    def confirm(index):
+        args = candidate.copy()
+        if not same_key:
+            args["operation_key"] = str(uuid4())
+        barrier.wait(timeout=10)
+        try:
+            return activate_pair(**args)
+        except ActivationConflict:
+            return None
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(confirm, [0, 1]))
+    assert sum(result is not None for result in results) == (2 if same_key else 1)
+    if same_key:
+        assert results[0] == results[1]
+    with transaction() as db:
+        assert db.get(CurrentPlans, candidate["member_id"]).version == 1
+        assert (
+            db.scalar(
+                select(func.count())
+                .select_from(Activation)
+                .where(Activation.member_id == candidate["member_id"])
+            )
+            == 1
+        )
