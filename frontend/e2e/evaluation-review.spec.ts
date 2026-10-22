@@ -41,3 +41,28 @@ test('owner reviews every comparison result before submitting quality ratings',a
  expect(submitted.ratings[0]).toMatchObject({result_id:'result-0',explanation_quality:4,factual_and_role_compliant:true});
  expect(errors).toEqual([]);
 });
+
+test('incomplete comparison retains evidence but cannot be reviewed or restarted', async ({ page }) => {
+  const candidate = { id: 'candidate', role: 'Coach', label: 'Incomplete fixture', model: 'test-model', prompt: 'Fixture', fingerprint: 'fixture', configured_groups: [] };
+  const run = { id: 'run', baseline_id: 'baseline', candidate_id: 'candidate', evidence_mode: 'Live', status: 'Incomplete', cases: [{ key: 'case-one' }], suite_version: 'fixture' };
+  await page.route('**/api/**', async route => {
+    const path = new URL(route.request().url()).pathname;
+    let data: unknown;
+    if (path === '/api/auth/me') data = { user: { id: 'owner', display_name: 'Fixture Owner', role: 'Owner' }, csrf_token: 'test' };
+    else if (path === '/api/conversations' || path === '/api/owner/groups') data = [];
+    else if (path === '/api/owner/agent-versions') data = { default_model: 'test-model', versions: [candidate] };
+    else if (path.endsWith('/evaluations/run')) data = { run, results: [], tasks: [{ request_id: 'task', status: 'Cancelled', wait_reason: null }], usage: { calls: 1, settled_micros: 15, unknown_calls: 0 } };
+    else if (path.endsWith('/evaluations')) data = [run];
+    else throw new Error(`Unexpected request: ${path}`);
+    await route.fulfill({ json: data });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Agent versions', exact: true }).click();
+  await page.locator('summary').filter({ hasText: 'Incomplete fixture' }).click();
+  await page.getByRole('button', { name: 'Load comparisons' }).click();
+  await page.getByRole('button', { name: /Live · Incomplete/ }).click();
+  await expect(page.getByRole('status')).toContainText('cannot support a release');
+  await expect(page.getByText('Recorded calls: 1. Settled cost: $0.000015. Unknown-usage calls: 0.')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Start .*call comparison/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Submit quality review' })).toHaveCount(0);
+});
