@@ -288,7 +288,7 @@ def decide(identifier: str, body: Decision, user: User = Depends(owner)):
             row.decision, row.decided_by, row.decided_at, row.comment = (
                 body.decision,
                 user.id,
-                now(),
+                now().replace(microsecond=0),
                 body.comment,
             )
             if body.decision in {"Revise", "Rejected"}:
@@ -325,7 +325,7 @@ def decide(identifier: str, body: Decision, user: User = Depends(owner)):
             row.decision, row.decided_by, row.decided_at, row.comment = (
                 body.decision,
                 user.id,
-                now(),
+                now().replace(microsecond=0),
                 body.comment,
             )
             if body.decision in {"Revise", "Rejected"}:
@@ -347,7 +347,7 @@ def decide(identifier: str, body: Decision, user: User = Depends(owner)):
         row.decision, row.decided_by, row.decided_at, row.comment = (
             body.decision,
             user.id,
-            now(),
+            now().replace(microsecond=0),
             body.comment,
         )
         db.flush()
