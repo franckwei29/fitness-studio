@@ -268,13 +268,14 @@ def decide(identifier: str, body: Decision, user: User = Depends(owner)):
             if row.decision == body.decision:
                 return view(row)
             raise HTTPException(409, "A decision has already been recorded.")
-        if row.subject_kind == "TrainingPlan":
+        if row.subject_kind in {"TrainingPlan", "NutritionPlan"}:
             from app.activation import plan_fingerprint
             from app.models import MemberGroup, PlanVersion
 
             plan = db.get(PlanVersion, row.subject_id)
-            if not plan or plan.status != "Validated":
-                raise HTTPException(409, "Training candidate is unavailable.")
+            kind = "Training" if row.subject_kind == "TrainingPlan" else "Nutrition"
+            if not plan or plan.kind != kind or plan.status != "Validated":
+                raise HTTPException(409, f"{kind} candidate is unavailable.")
             member = db.get(Member, plan.member_id)
             group = db.get(MemberGroup, member.group_id)
             if (
@@ -283,7 +284,7 @@ def decide(identifier: str, body: Decision, user: User = Depends(owner)):
                 or plan.profile_version != member.profile_version
                 or plan.config_version != group.version
             ):
-                raise HTTPException(409, "Training candidate context has changed.")
+                raise HTTPException(409, f"{kind} candidate context has changed.")
             row.decision, row.decided_by, row.decided_at, row.comment = (
                 body.decision,
                 user.id,
@@ -295,7 +296,7 @@ def decide(identifier: str, body: Decision, user: User = Depends(owner)):
             db.add(
                 AuditEvent(
                     actor_id=user.id,
-                    event_type="training.reviewed",
+                    event_type=f"{kind.lower()}.reviewed",
                     subject_id=plan.id,
                     details={"decision": body.decision, "fingerprint": row.fingerprint},
                 )

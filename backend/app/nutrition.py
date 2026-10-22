@@ -6,6 +6,8 @@ from pydantic import Field
 
 from app.agent_contracts import StrictModel
 
+NUTRITION_RULE_VERSION = "nutrition-structure-v1"
+
 
 class FoodDefinition(StrictModel):
     id: str
@@ -34,7 +36,7 @@ class Meal(StrictModel):
 class NutritionProposal(StrictModel):
     title: str = Field(min_length=1, max_length=160)
     rationale: str = Field(min_length=1, max_length=3000)
-    training_version_id: str
+    training_version_id: str | None
     meals: list[Meal] = Field(min_length=1, max_length=10)
     limitations: list[str]
 
@@ -77,7 +79,7 @@ def validate_nutrition(proposal, catalogue, training_id, excluded_allergens, req
     return {
         "passed": not violations,
         "violations": violations,
-        "rule_version": "nutrition-structure-v1",
+        "rule_version": NUTRITION_RULE_VERSION,
         "basis": {
             "training_id": training_id,
             "totals": totals,

@@ -129,3 +129,21 @@ def confirm_training(identifier: str, body: TrainingConfirmation, user: User = D
         )
     except ActivationConflict as exc:
         raise HTTPException(409, str(exc)) from None
+
+
+@router.post("/me/plans/nutrition/{identifier}/confirm")
+def confirm_nutrition(identifier: str, body: TrainingConfirmation, user: User = Depends(principal)):
+    from app.activation import activate_nutrition
+
+    with transaction() as db:
+        member = db.scalar(select(Member).where(Member.user_id == user.id))
+        plan = db.get(PlanVersion, identifier)
+        if not member or not plan or plan.member_id != member.id or plan.kind != "Nutrition":
+            raise HTTPException(404, "Nutrition plan not found.")
+        member_id = member.id
+    try:
+        return activate_nutrition(
+            member_id, identifier, user.id, body.expected_current_version, body.operation_key
+        )
+    except ActivationConflict as exc:
+        raise HTTPException(409, str(exc)) from None

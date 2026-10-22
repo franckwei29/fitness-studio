@@ -91,7 +91,7 @@ def request_substitution(body: SubstitutionRequest, user: User = Depends(princip
         group = db.get(MemberGroup, member.group_id)
         if not group or any(
             group.configuration.get("capabilities", {}).get(key) is not True
-            for key in ["nutrition", "training", "substitutions"]
+            for key in ["nutrition", "substitutions"]
         ):
             raise HTTPException(409, "Food substitution is disabled for this membership group.")
         digest = fingerprint(body.model_dump(exclude={"key"}))

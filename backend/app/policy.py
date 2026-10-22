@@ -195,7 +195,7 @@ def execution_context(db, item, request):
     if request.kind == "Combined":
         required.update(["training", "nutrition"])
     if request.kind == "FoodSubstitution":
-        required.update(["training", "nutrition", "substitutions"])
+        required.update(["nutrition", "substitutions"])
     if request.kind == "CycleReview" and request.payload.get("coordinate_nutrition"):
         required.update(["training", "nutrition"])
     capabilities = group.configuration.get("capabilities", {})

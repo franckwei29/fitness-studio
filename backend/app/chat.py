@@ -77,6 +77,8 @@ def request_view(db, row):
     if row.status == "AwaitingConfirmation":
         result["status_message"] = (
             "Your cycle candidate is ready. Review and activate the new plan to complete the review."
+            if row.kind == "CycleReview"
+            else "Your candidate is ready. Review and activate it to complete this request."
         )
     if row.status == "Queued" and (row.result or {}).get("correction_work_id"):
         result["status_message"] = (

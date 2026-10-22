@@ -1,4 +1,4 @@
-"""Nutrition candidates are validated against a specific training version."""
+"""Standalone or training-linked nutrition candidates with exact-context validation."""
 
 from datetime import timedelta
 
@@ -44,16 +44,24 @@ food IDs, exact preparation states, and edible gram portions. Honour all supplie
 restrictions. Do not invent nutrient values: the application calculates them.
 Reference the supplied training_version_id exactly. Describe limitations, including
 that individual energy requirements have not been clinically assessed.
+When training_version_id is null, return null and provide a standalone meal example
+based on the confirmed profile. Do not invent a training programme or claim that
+nutrition planning requires a training plan. When training is supplied, align with
+that exact version and do not claim the pair is already active.
 """
 )
 
 
-def training_for(db, item, authorized):
+def training_for(db, item, authorized, request):
     if item.subject_kind == "TrainingPlan":
         identifier = item.subject_id
     else:
         current = db.get(CurrentPlans, authorized["member_id"])
         identifier = current.training_id if current else None
+        group = db.get(MemberGroup, authorized["group_id"])
+        training_enabled = group.configuration.get("capabilities", {}).get("training") is True
+        if request.kind in {"Nutrition", "FoodSubstitution"} and (not identifier or not training_enabled):
+            return None
     plan = db.get(PlanVersion, identifier) if identifier else None
     if (
         not plan
@@ -74,7 +82,7 @@ def run_nutrition(claim):
             item, request = lock_claim(db, claim)
             authorized = execution_context(db, item, request)
             cycle_baseline(db, request, authorized["member_id"])
-            training = training_for(db, item, authorized)
+            training = training_for(db, item, authorized, request)
             baseline = substitution_baseline(db, request, authorized["member_id"])
             allergens, tags = dietary_constraints(authorized["profile"].get("dietary_restrictions"))
             version = resolve_version(db, item, authorized, INSTRUCTION)
@@ -89,8 +97,8 @@ def run_nutrition(claim):
                 "context": {
                     "profile": authorized["profile"],
                     "foods": foods,
-                    "training_version_id": training.id,
-                    "training": training.content,
+                    "training_version_id": training.id if training else None,
+                    "training": training.content if training else None,
                     "request": request.payload["content"],
                     "agent_version_id": version.id,
                     **correction_context(db, item, request, authorized),
@@ -137,10 +145,12 @@ def run_nutrition(claim):
             authorized = execution_context(db, item, request)
             member = db.scalar(select(Member).where(Member.id == authorized["member_id"]).with_for_update())
             cycle_baseline(db, request, member.id)
-            training = training_for(db, item, authorized)
+            training = training_for(db, item, authorized, request)
             baseline = substitution_baseline(db, request, authorized["member_id"])
             allergens, tags = dietary_constraints(authorized["profile"].get("dietary_restrictions"))
-            validation = validate_nutrition(output, food_catalogue(), training.id, allergens, tags)
+            validation = validate_nutrition(
+                output, food_catalogue(), training.id if training else None, allergens, tags
+            )
             if baseline:
                 validation["violations"].extend(
                     check_substitution(output, baseline.content, request.payload["substitution"])
@@ -183,7 +193,7 @@ def run_nutrition(claim):
                 config_version=authorized["versions"]["group"],
                 agent_version_id=state["context"]["agent_version_id"],
                 baseline_id=current.nutrition_id if current else None,
-                training_input_id=training.id,
+                training_input_id=training.id if training else None,
                 content=content,
                 rationale=output.rationale,
                 fingerprint="pending",
@@ -201,7 +211,7 @@ def run_nutrition(claim):
                 )
             )
             pair = None
-            if validation["passed"]:
+            if validation["passed"] and training:
                 pair_validation = ValidationResult(
                     subject_fingerprint=pair_fingerprint(training, plan),
                     rule_version=PAIR_RULE_VERSION,
@@ -241,8 +251,22 @@ def run_nutrition(claim):
                             expires_at=now() + timedelta(hours=24),
                         )
                     )
+            if validation["passed"] and not training:
+                group = db.get(MemberGroup, member.group_id)
+                if group.configuration.get("review_required"):
+                    db.add(
+                        Approval(
+                            subject_kind="NutritionPlan",
+                            subject_id=plan.id,
+                            subject_version=plan.version,
+                            fingerprint=plan.fingerprint,
+                            scope={"member_id": member.id},
+                            context={"nutrition": plan.content, "validation": validation},
+                            expires_at=min(request.deadline, now() + timedelta(hours=24)),
+                        )
+                    )
             result = {
-                "status": "Completed" if pair else "Waiting",
+                "status": "Completed" if validation["passed"] else "Waiting",
                 "nutrition_id": plan.id,
                 "pair_id": pair.id if pair else None,
                 "call_id": call.id if call else None,
@@ -250,11 +274,11 @@ def run_nutrition(claim):
                 "validation": validation,
             }
             item.status = result["status"]
-            if pair and request.kind == "CycleReview":
+            if validation["passed"] and (request.kind == "CycleReview" or not training):
                 result["status"] = "AwaitingConfirmation"
             request.status = result["status"]
-            item.wait_reason = None if pair else "CandidateValidation"
-            if not pair:
+            item.wait_reason = None if validation["passed"] else "CandidateValidation"
+            if not validation["passed"]:
                 result.update(queue_correction(db, item, request, plan))
                 request.status = result["status"]
             item.lease_until = None
@@ -265,12 +289,20 @@ def run_nutrition(claim):
                     sender="Nutrition",
                     content="Your plan pair is ready for review and confirmation."
                     if pair
+                    else "Your standalone nutrition candidate is ready for review and confirmation."
+                    if validation["passed"]
                     else (
                         "The nutrition candidate failed validation. A bounded correction is queued; your active plan has not changed."
                         if result["status"] == "Queued"
                         else "Nutrition correction stopped at its limit. Review the validation issues before submitting a new request. No invalid plan was activated."
                     ),
-                    cards=[{"type": "PlanPairReview", "pair_id": pair.id if pair else None}],
+                    cards=[
+                        {
+                            "type": "PlanPairReview" if pair else "NutritionCandidate",
+                            "pair_id": pair.id if pair else None,
+                            "plan_id": plan.id,
+                        }
+                    ],
                 )
             )
             event(db, request, "nutrition_candidate", **result)
