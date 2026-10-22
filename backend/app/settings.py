@@ -2,6 +2,8 @@
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
+from uuid import UUID
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -24,6 +26,16 @@ class Settings(BaseSettings):
     owner_email: str = "owner@example.test"
     owner_password: SecretStr
     cookie_secure: bool = False
+    studio_langsmith_export_enabled: bool = False
+    studio_langsmith_api_key: SecretStr = SecretStr("")
+    studio_langsmith_endpoint: Literal[
+        "https://api.smith.langchain.com",
+        "https://eu.api.smith.langchain.com",
+        "https://apac.api.smith.langchain.com",
+        "https://aws.api.smith.langchain.com",
+    ] = "https://api.smith.langchain.com"
+    studio_langsmith_project: str = "fitness-studio-redacted"
+    studio_langsmith_workspace_id: UUID | None = None
 
 
 @lru_cache

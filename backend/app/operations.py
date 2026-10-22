@@ -6,9 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from sqlalchemy import func, select
 
-from app.admission import view
 from app.database import transaction
-from app.models import Approval, AuditEvent, BudgetAccount, Member, ModelCall, Request, User, WorkItem, now
+from app.models import Approval, BudgetAccount, Member, ModelCall, Request, User, now
 from app.operation_summary import markdown_summary, reporting_period, summarize
 from app.security import owner
 
@@ -83,60 +82,12 @@ def operations_brief(user: User = Depends(owner), start: date | None = None, end
 
 @router.get("/requests/{identifier}/trace")
 def trace(identifier: str, user: User = Depends(owner)):
-    with transaction() as db:
-        request = db.get(Request, identifier)
-        if not request:
-            raise HTTPException(404, "Request not found.")
-        tasks = list(
-            db.scalars(
-                select(WorkItem).where(WorkItem.request_id == identifier).order_by(WorkItem.created_at)
-            )
+    from app.settings import get_settings
+    from app.trace_data import request_trace
+
+    settings = get_settings()
+    return request_trace(identifier) | {
+        "external_export_configured": bool(
+            settings.studio_langsmith_export_enabled and settings.studio_langsmith_api_key.get_secret_value()
         )
-        calls = list(
-            db.scalars(
-                select(ModelCall).where(ModelCall.request_id == identifier).order_by(ModelCall.created_at)
-            )
-        )
-        audits = list(
-            db.scalars(
-                select(AuditEvent).where(AuditEvent.request_id == identifier).order_by(AuditEvent.created_at)
-            )
-        )
-        # Health profiles, prompts, chat text, and generated output are omitted.
-        return {
-            "request": {
-                "id": request.id,
-                "kind": request.kind,
-                "status": request.status,
-                "deadline": request.deadline,
-                "model_calls": request.model_calls,
-            },
-            "tasks": [
-                {
-                    "id": row.id,
-                    "role": row.role,
-                    "status": row.status,
-                    "wait_reason": row.wait_reason,
-                    "attempts": row.attempts,
-                    "lease_until": row.lease_until,
-                    "input_versions": row.input_versions,
-                }
-                for row in tasks
-            ],
-            "calls": [
-                {
-                    "id": row.id,
-                    "model": row.model,
-                    "role": row.role,
-                    "status": row.status,
-                    "reserved_micros": row.reserved_micros,
-                    "actual_micros": row.actual_micros,
-                    "price_version": row.price_version,
-                    "usage": row.usage,
-                    "provider_id": row.provider_id,
-                    "created_at": row.created_at,
-                }
-                for row in calls
-            ],
-            "events": [view(row) for row in audits],
-        }
+    }

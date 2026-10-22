@@ -6,6 +6,7 @@ from typing import Callable, TypedDict
 from langgraph.checkpoint.redis import RedisSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
+from langsmith import tracing_context
 
 from app.settings import get_settings
 
@@ -66,7 +67,9 @@ def build_graph(checkpointer, *, prepare: Callable, generate: Callable, validate
 
 @contextmanager
 def persistent_graph(**handlers):
-    with RedisSaver.from_conn_string(
+    # Raw graph state contains health facts. Export only the explicit allowlisted
+    # operational snapshot, even if ambient LANGSMITH_TRACING is enabled.
+    with tracing_context(enabled=False), RedisSaver.from_conn_string(
         get_settings().redis_url,
         checkpoint_prefix="studio_checkpoint",
         checkpoint_write_prefix="studio_checkpoint_write",

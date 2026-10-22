@@ -25,6 +25,7 @@ from app.rollback_recovery import router as rollback_recovery_router
 from app.security import hash_password, issue_session, principal, verify_password
 from app.settings import get_settings
 from app.substitution import router as substitution_router
+from app.trace_export import router as trace_export_router
 from app.usage_admin import router as usage_router
 from app.version_admin import router as version_router
 
@@ -126,6 +127,7 @@ app.include_router(correction_router)
 app.include_router(plans_router)
 
 app.include_router(operations_router)
+app.include_router(trace_export_router)
 
 app.include_router(feedback_router)
 

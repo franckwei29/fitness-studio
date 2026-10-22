@@ -90,3 +90,14 @@ docker compose -p fitness-studio-test -f compose.yaml stop
 Application database names and host ports can be overridden with `DATABASE_NAME`, `DATABASE_PORT`, and `REDIS_PORT`. Local Python processes must use a matching `DATABASE_URL` and `REDIS_URL` when those values change. Docker application processes derive their internal database URL from `DATABASE_NAME`.
 
 For an independent acceptance environment, use a different Compose project name and a private environment file. Set `APP_ENV_FILE` to that file and select unused `DATABASE_PORT`, `REDIS_PORT`, and `WEB_PORT` values in it. Pass the same file through Compose's `--env-file` option. The separate project creates its own network and data volumes; do not reuse the main project's name. Never commit private environment files or demo account credentials.
+## Optional redacted trace export
+
+Studio overview lets an Owner inspect and download a redacted operational snapshot without any external service. The snapshot retains request/task references, fixed status codes, approved version references, numeric token usage and ledger costs. It excludes personal profile data, conversation text, prompts, model output, credentials, provider response identifiers and arbitrary diagnostic text. Unknown cost remains unknown.
+
+To enable explicit LangSmith exports, set `STUDIO_LANGSMITH_EXPORT_ENABLED=true`, provide `STUDIO_LANGSMITH_API_KEY` in the private environment, and choose `STUDIO_LANGSMITH_PROJECT`. `STUDIO_LANGSMITH_ENDPOINT` supports the documented US, EU, APAC and AWS hosted endpoints. Keys tied to multiple workspaces may also need `STUDIO_LANGSMITH_WORKSPACE_ID`. Restart the API after configuration. These credentials are separate from Gemini credentials.
+
+The Owner reviews the trace and clicks **Export snapshot to LangSmith**. The API rechecks its fingerprint, records dispatch before sending, and makes one bounded request. Repeating the same export returns its stored receipt. `Accepted` means the service acknowledged ingestion; `Unknown` or a crash-left `Pending` receipt requires checking the recorded run ID in LangSmith rather than automatically resending. A rejected or unavailable export leaves the local trace, application workflow and model ledger intact. No export is sent automatically by the worker.
+
+The cloud run represents a snapshot observation. Recorded task and model-call times remain in its metadata; the export does not invent execution spans or overwrite historical evidence. Raw graph-state tracing is suppressed inside the application's graph context even if `LANGSMITH_TRACING` is enabled in the surrounding environment.
+
+Implementation references: [LangSmith manual tracing API](https://docs.langchain.com/langsmith/trace-with-api) and [sensitive-data controls](https://docs.langchain.com/langsmith/mask-inputs-outputs). Transport tests use a synthetic remote service; live external ingestion requires configured credentials and is not implied by those tests.
