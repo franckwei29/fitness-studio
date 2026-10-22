@@ -91,7 +91,10 @@ def generate_reminders(at=None):
                 )
             latest = db.scalar(
                 select(func.max(Observation.created_at)).where(
-                    Observation.member_id == member.id, Observation.kind == "TrainingFeedback"
+                    Observation.member_id == member.id,
+                    Observation.kind.in_(["TrainingFeedback", "CycleFeedback"]),
+                    Observation.status == "Confirmed",
+                    Observation.created_at <= at,
                 )
             )
             last_activity = latest or member.created_at
@@ -110,6 +113,7 @@ def generate_reminders(at=None):
                         select(Observation.kind, func.count())
                         .where(
                             Observation.member_id == member.id,
+                            Observation.status == "Confirmed",
                             Observation.created_at >= at - timedelta(days=7),
                             Observation.created_at <= at,
                         )
@@ -121,7 +125,7 @@ def generate_reminders(at=None):
                     member,
                     f"weekly:{week_key}",
                     "Your weekly check-in",
-                    f"In the past seven days you recorded {counts.get('TrainingFeedback', 0)} training feedback entries and {counts.get('NutritionFeedback', 0)} nutrition feedback entries. These are recorded check-ins, not verified completed sessions.",
+                    f"In the past seven days you recorded {counts.get('TrainingFeedback', 0)} training feedback entries, {counts.get('CycleFeedback', 0)} training cycle reviews, and {counts.get('NutritionFeedback', 0)} nutrition feedback entries. These are recorded check-ins, not verified completed sessions.",
                     "WeeklySummary",
                 )
     return created
