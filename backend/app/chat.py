@@ -4,10 +4,10 @@ import json
 from datetime import timedelta
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 
 from app.admission import fingerprint, view
 from app.database import transaction
@@ -52,6 +52,17 @@ WAIT_MESSAGES = {
 
 def request_view(db, row):
     result = view(row)
+    current_work = db.scalar(
+        select(WorkItem)
+        .where(WorkItem.request_id == row.id, WorkItem.status.in_(["Running", "Queued", "Waiting"]))
+        .order_by(
+            case((WorkItem.status == "Running", 0), (WorkItem.status == "Queued", 1), else_=2),
+            WorkItem.created_at,
+            WorkItem.id,
+        )
+        .limit(1)
+    )
+    result["active_role"] = current_work.role if current_work else None
     waiting = db.scalar(
         select(WorkItem)
         .where(WorkItem.request_id == row.id, WorkItem.status == "Waiting")
@@ -120,6 +131,12 @@ def conversation(identifier: str, user: User = Depends(principal)):
         )
         return {
             "conversation": view(row),
+            "event_cursor": db.scalar(
+                select(func.max(RequestEvent.sequence))
+                .join(Request, Request.id == RequestEvent.request_id)
+                .where(Request.session_id == identifier)
+            )
+            or 0,
             "messages": [view(item) for item in messages],
             "requests": [request_view(db, item) for item in requests],
         }
@@ -327,11 +344,20 @@ def cancel_request(identifier: str, user: User = Depends(principal)):
 
 
 @router.get("/requests/{identifier}/events")
-def events(identifier: str, after: int = Query(default=0, ge=0), user: User = Depends(principal)):
+def events(
+    identifier: str,
+    after: int = Query(default=0, ge=0),
+    last_event_id: str | None = Header(default=None),
+    user: User = Depends(principal),
+):
     # A bounded stream closes after replay. The client reconnects with its cursor,
     # repeating authentication and authorization on every connection.
     with transaction() as db:
         owned(db, Request, identifier, user)
+        if last_event_id is not None:
+            if not last_event_id.isascii() or not last_event_id.isdecimal() or len(last_event_id) > 19:
+                raise HTTPException(422, "Last-Event-ID must be a nonnegative event sequence.")
+            after = max(after, int(last_event_id))
         rows = list(
             db.scalars(
                 select(RequestEvent)

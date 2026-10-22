@@ -40,6 +40,7 @@ flowchart LR
 ```
 
 - The API authenticates users and persists requests before execution. Session cookies and CSRF protection are used on one origin.
+- Conversation progress uses authenticated SSE replay in bounded batches. Native browser reconnection resumes with `Last-Event-ID`; duplicate events are ignored and trigger a fresh server snapshot rather than replaying old status onto the interface. A 15-second refresh provides a fallback, and stale overlapping responses cannot overwrite newer snapshots. Task progress identifies the current processing role.
 - Workers check current permissions, input versions, task leases, and immutable agent versions. The model proposes structured outputs; application services validate and commit changes.
 - Training and nutrition candidates form an exact validated pair. Activation atomically updates current pointers. Historical versions remain available.
 - Every paid dispatch needs a budget reservation and an application-wide rate permit. Unknown provider usage retains funds and is not reported as zero cost. Releasing an expired local concurrency slot does not reconcile billing or retry the original request.

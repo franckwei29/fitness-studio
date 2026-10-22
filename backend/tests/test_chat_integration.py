@@ -43,6 +43,10 @@ def test_submission_replay_and_private_event_history():
         assert "event: queued" in stream.text
         cursor = next(line.split(": ")[1] for line in stream.text.splitlines() if line.startswith("id:"))
         assert "event: queued" not in client.get(f"{request_url}/events?after={cursor}").text
+        assert (
+            "event: queued" not in client.get(f"{request_url}/events", headers={"Last-Event-ID": cursor}).text
+        )
+        assert client.get(f"{request_url}/events", headers={"Last-Event-ID": "invalid"}).status_code == 422
         assert other.get(url).status_code == 404
         assert other.get(request_url).status_code == 404
         assert other.get(f"{request_url}/events").status_code == 404
