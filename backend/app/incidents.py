@@ -91,6 +91,10 @@ def verify_recovery(identifier: str, user: User = Depends(owner)):
         incident = db.scalar(select(Incident).where(Incident.id == identifier).with_for_update())
         if not incident:
             raise HTTPException(404, "Incident not found.")
+        if incident.evidence.get("release_id"):
+            from app.rollback_recovery import verify_release_service
+
+            return verify_release_service(db, incident, user.id)
         request = db.get(Request, incident.request_id) if incident.request_id else None
         tasks = list(db.scalars(select(WorkItem).where(WorkItem.request_id == incident.request_id)))
         if (

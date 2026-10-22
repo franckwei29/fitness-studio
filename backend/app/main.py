@@ -20,6 +20,7 @@ from app.notifications import router as notifications_router
 from app.operations import router as operations_router
 from app.plans import router as plans_router
 from app.readiness import check_readiness
+from app.rollback_recovery import router as rollback_recovery_router
 from app.security import hash_password, issue_session, principal, verify_password
 from app.settings import get_settings
 from app.substitution import router as substitution_router
@@ -139,6 +140,7 @@ app.include_router(member_admin_router)
 app.include_router(version_router)
 
 app.include_router(release_router)
+app.include_router(rollback_recovery_router)
 
 app.include_router(substitution_router)
 

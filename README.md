@@ -22,6 +22,8 @@ The owner workspace provides a review queue, operational overview, member groups
 
 The overview supports an inclusive UTC date range and a downloadable Markdown operations brief, defaulting to the latest seven days. Both use the same metric service. Candidate creation and successful activation are counted separately. Period costs follow the creation time of model-call records and their current settlement state; current membership and incident totals are explicitly labelled as current state.
 
+If an automatic rollback is blocked by a newer configuration, the affected role is blocked while it still uses the failed version and an incident is recorded. In Agent releases, propose recovery against the latest group version. Review the proposal in Review queue and execute it in Member groups. Only the affected role's retained version changes; other current settings remain intact. Configuration restoration alone does not close the incident: a subsequent successful request under the restored role is required for recovery verification.
+
 ## Architecture
 
 ```mermaid

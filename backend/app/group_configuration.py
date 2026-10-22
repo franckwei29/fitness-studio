@@ -165,6 +165,9 @@ def execute(identifier: str, user: User = Depends(owner)):
         )
         if change.status != "Approved" or not approval:
             raise HTTPException(409, "A current approval is required.")
+        from app.rollback_recovery import complete_recovery_change, verify_recovery_change
+
+        recovery_release = verify_recovery_change(db, change, approval)
         group = db.scalar(select(MemberGroup).where(MemberGroup.id == change.group_id).with_for_update())
         if (
             group.version != change.baseline["version"]
@@ -172,6 +175,10 @@ def execute(identifier: str, user: User = Depends(owner)):
         ):
             raise HTTPException(409, "The approved baseline has changed. Submit a new candidate.")
         candidate = GroupConfiguration.model_validate(change.candidate).model_dump()
+        if not recovery_release and candidate["agent_versions"] != group.configuration.get(
+            "agent_versions", {}
+        ):
+            raise HTTPException(409, "Agent changes require a release or reviewed rollback recovery.")
         digest = fingerprint({"group_id": group.id, "baseline": change.baseline, "candidate": candidate})
         if digest != change.fingerprint:
             raise HTTPException(409, "The approved candidate has changed.")
@@ -183,6 +190,8 @@ def execute(identifier: str, user: User = Depends(owner)):
             "retained_configuration": change.baseline,
             "status": "Committed",
         }
+        if recovery_release:
+            complete_recovery_change(db, recovery_release, change, group, user.id)
         db.add(
             AuditEvent(
                 actor_id=user.id,
