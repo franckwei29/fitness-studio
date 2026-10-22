@@ -91,6 +91,35 @@ def test_acceptance_is_idempotent_and_profile_is_versioned(member):
     profile = member.get("/api/me/profile").json()
     assert profile["snapshot"]["version"] == 2
     assert profile["snapshot"]["facts"]["available_days"] == 4
+    history = member.get("/api/me/profile/history").json()
+    assert history["current_version"] == 2
+    assert [row["version"] for row in history["versions"]] == [2, 1]
+    assert history["versions"][1]["facts"]["available_days"] == 3
+    assert history["versions"][0]["changes"] == [
+        {
+            "field": "available_days",
+            "before_present": True,
+            "after_present": True,
+            "before": 3,
+            "after": 4,
+        }
+    ]
+    assert history["versions"][1]["source_assessment_id"] == assessment["id"]
+    with TestClient(app) as other:
+        assert other.get("/api/me/profile/history").status_code == 401
+        auth = other.post(
+            "/api/auth/register",
+            json={
+                "email": f"history-{uuid4()}@example.test",
+                "password": "Integration-test-123!",
+                "display_name": "Separate Applicant",
+            },
+        )
+        assert auth.status_code == 201
+        assert other.get("/api/me/profile/history", params={"member_id": profile["member"]["id"]}).json() == {
+            "current_version": None,
+            "versions": [],
+        }
 
 
 @pytest.mark.parametrize(

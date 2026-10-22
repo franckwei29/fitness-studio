@@ -200,6 +200,44 @@ def profile(user: User = Depends(principal)):
         return {"member": view(member), "snapshot": view(snapshot)}
 
 
+@router.get("/me/profile/history")
+def profile_history(user: User = Depends(principal)):
+    with transaction() as db:
+        member = db.scalar(select(Member).where(Member.user_id == user.id))
+        if not member:
+            return {"current_version": None, "versions": []}
+        rows = db.scalars(
+            select(ProfileSnapshot)
+            .where(ProfileSnapshot.member_id == member.id)
+            .order_by(ProfileSnapshot.version)
+        )
+        previous = {}
+        versions = []
+        for row in rows:
+            changes = [
+                {
+                    "field": key,
+                    "before_present": key in previous,
+                    "after_present": key in row.facts,
+                    "before": previous.get(key),
+                    "after": row.facts.get(key),
+                }
+                for key in sorted(set(previous) | set(row.facts))
+                if (key in previous) != (key in row.facts) or previous.get(key) != row.facts.get(key)
+            ]
+            versions.append(
+                {
+                    "version": row.version,
+                    "created_at": row.created_at,
+                    "facts": row.facts,
+                    "changes": changes,
+                    "source_assessment_id": row.sources.get("assessment_id"),
+                }
+            )
+            previous = row.facts
+        return {"current_version": member.profile_version, "versions": list(reversed(versions))}
+
+
 @router.get("/owner/approvals")
 def approvals(user: User = Depends(owner)):
     with transaction() as db:
