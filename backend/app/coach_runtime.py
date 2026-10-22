@@ -8,6 +8,7 @@ from app.activation import plan_fingerprint
 from app.agent_contracts import COMMON_INSTRUCTION
 from app.agent_graph import graph_config, persistent_graph
 from app.agent_versions import resolve_version
+from app.candidate_correction import correction_context, queue_correction
 from app.catalogue import exercise_catalogue
 from app.cycle_requests import cycle_baseline
 from app.cycle_review import CycleFeedback, validate_cycle_adjustment
@@ -71,6 +72,7 @@ def run_coach(claim):
                     "exercise_catalogue": exercises,
                     "request": request.payload["content"],
                     "agent_version_id": version.id,
+                    **correction_context(db, item, request, authorized),
                     **revision_context(db, request, authorized, "Coach"),
                     **(
                         {
@@ -98,7 +100,7 @@ def run_coach(claim):
         output = TrainingProposal.model_validate(state["candidate"]["proposal"])
         with transaction() as db:
             existing = db.scalar(select(WorkItem).where(WorkItem.id == claim.work_id).with_for_update())
-            if existing and existing.status == "Completed":
+            if existing and existing.status in {"Completed", "Superseded"}:
                 return {"outcome": db.get(Request, existing.request_id).result}
             item, request = lock_claim(db, claim)
             authorized = execution_context(db, item, request)
@@ -190,9 +192,12 @@ def run_coach(claim):
                     text += " Nutrition planning is next."
                 item.status = "Completed"
             else:
-                text = "The proposed training plan needs revision before it can be used."
-                item.status = "Waiting"
-                item.wait_reason = "CandidateValidation"
+                result.update(queue_correction(db, item, request, plan))
+                text = (
+                    "The training candidate failed validation. A bounded correction is queued; your active plan has not changed."
+                    if result["status"] == "Queued"
+                    else "Training correction stopped at its limit. Review the recorded validation issues before submitting a new request. No invalid plan was activated."
+                )
             request.status = result["status"]
             request.result = result
             item.lease_until = None

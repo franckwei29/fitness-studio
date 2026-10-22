@@ -3,6 +3,7 @@
 from copy import deepcopy
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
@@ -14,9 +15,32 @@ from app.rules import EXCLUSIONS
 from app.worker import run_once
 
 
-def test_combined_candidate_to_atomic_activation(monkeypatch):
+@pytest.mark.parametrize(
+    "first_invalid", [None, "Coach", "Nutrition", "Both", "Always", "CallLimit", "Legacy"]
+)
+def test_combined_candidate_to_atomic_activation(monkeypatch, first_invalid):
     bootstrap()
     calls = []
+    expected_initial = (
+        ["Coach", "Coach", "Nutrition"]
+        if first_invalid in {"Coach", "Legacy"}
+        else ["Coach", "Nutrition", "Nutrition"]
+        if first_invalid == "Nutrition"
+        else ["Coach", "Nutrition"]
+    )
+
+    if first_invalid == "Both":
+        expected_initial = ["Coach", "Coach", "Nutrition", "Nutrition"]
+
+    if first_invalid == "Legacy":
+
+        def old_validation_wait(db, item, request, plan):
+            item.status = "Waiting"
+            item.wait_reason = "CandidateValidation"
+            item.lease_until = None
+            return {"status": "Waiting"}
+
+        monkeypatch.setattr("app.coach_runtime.queue_correction", old_validation_wait)
 
     def synthetic_generate(claim, instruction, context, output_type, max_output_tokens=2048):
         calls.append(claim.role)
@@ -77,9 +101,25 @@ def test_combined_candidate_to_atomic_activation(monkeypatch):
             and context.get("confirmed_cycle_feedback", {}).get("adjustment") == "Progression"
         ):
             content["sessions"][0]["exercises"][0]["seconds_per_set"] = 50
+        if (first_invalid in {"Coach", "Both", "Legacy"} and len(calls) == 1) or first_invalid in {
+            "Always",
+            "CallLimit",
+        }:
+            content["sessions"][0]["exercises"][0]["exercise_id"] = "not-in-the-catalogue"
+        if first_invalid in {"Coach", "Both", "Legacy"} and len(calls) == 2:
+            assert context["correction"]["violations"] == ["Unknown exercise: not-in-the-catalogue."]
+        if (first_invalid == "Nutrition" and len(calls) == 2) or (
+            first_invalid == "Both" and len(calls) == 3
+        ):
+            content["meals"][0]["portions"][0]["food_id"] = "unknown-food"
+        if (first_invalid == "Nutrition" and len(calls) == 3) or (
+            first_invalid == "Both" and len(calls) == 4
+        ):
+            assert context["correction"]["violations"] == ["Unknown food catalogue entry: unknown-food."]
         output = output_type.model_validate(content)
         with transaction() as db:
             request = db.get(Request, claim.request_id)
+            request.model_calls += 1
             call = ModelCall(
                 request_id=request.id,
                 user_id=request.user_id,
@@ -134,14 +174,53 @@ def test_combined_candidate_to_atomic_activation(monkeypatch):
         )
         assert submitted.status_code == 202
         request_id = submitted.json()["request_id"]
+        if first_invalid in {"Always", "CallLimit"}:
+            original_deadline = client.get(f"/api/requests/{request_id}").json()["deadline"]
+            if first_invalid == "CallLimit":
+                with transaction() as db:
+                    db.get(Request, request_id).max_model_calls = 1
+            runs = 1 if first_invalid == "CallLimit" else 3
+            for _ in range(runs):
+                assert run_once(request_id)
+            assert not run_once(request_id)
+            stopped = client.get(f"/api/requests/{request_id}").json()
+            assert stopped["status"] == "Stopped"
+            assert stopped["deadline"] == original_deadline
+            assert stopped["revisions"] == runs - 1
+            assert stopped["model_calls"] == runs
+            assert calls == ["Coach"] * runs
+            history = client.get("/api/me/plans").json()
+            assert len(history["plans"]) == runs
+            assert all(plan["status"] == "Invalid" for plan in history["plans"])
+            assert not history["pairs"] and history["current"]["training_id"] is None
+            return
+        if first_invalid in {"Coach", "Both", "Legacy"}:
+            assert run_once(request_id)
+            failed = client.get(f"/api/requests/{request_id}").json()
+            if first_invalid == "Legacy":
+                assert failed["status"] == "Waiting"
+                endpoint = f"/api/me/requests/{request_id}/correct"
+                body = {"plan_id": failed["result"]["training_id"]}
+                response = client.post(endpoint, json=body)
+                assert response.status_code == 202, response.text
+                assert client.post(endpoint, json=body).json() == response.json()
+                failed = client.get(f"/api/requests/{request_id}").json()
+            assert failed["status"] == "Queued" and failed["revisions"] == 1
+            assert failed["result"]["correction_work_id"]
         assert run_once(request_id)
         assert client.get(f"/api/requests/{request_id}").json()["status"] == "Queued"
         assert run_once(request_id)
-        assert calls == ["Coach", "Nutrition"]
+        if first_invalid in {"Nutrition", "Both"}:
+            failed = client.get(f"/api/requests/{request_id}").json()
+            assert failed["status"] == "Queued" and failed["revisions"] == (
+                2 if first_invalid == "Both" else 1
+            )
+            assert run_once(request_id)
+        assert calls == expected_initial
         status = client.get(f"/api/requests/{request_id}").json()
         assert status["status"] == "Completed", status
         plans = client.get("/api/me/plans").json()
-        assert len(plans["plans"]) == 2
+        assert len(plans["plans"]) == len(expected_initial)
         assert plans["current"]["training_id"] is None
         assert len(plans["pairs"]) == 1
         pair = plans["pairs"][0]
@@ -155,7 +234,9 @@ def test_combined_candidate_to_atomic_activation(monkeypatch):
         assert current["version"] == 1
         assert not run_once(request_id)
         with transaction() as db:
-            assert len(list(db.scalars(select(ModelCall).where(ModelCall.request_id == request_id)))) == 2
+            assert len(list(db.scalars(select(ModelCall).where(ModelCall.request_id == request_id)))) == len(
+                expected_initial
+            )
 
         substitution = {
             "key": str(uuid4()),
@@ -189,7 +270,7 @@ def test_combined_candidate_to_atomic_activation(monkeypatch):
             client.post("/api/me/food-substitutions", json=substitution | {"key": str(uuid4())}).status_code
             == 409
         )
-        assert calls == ["Coach", "Nutrition", "Nutrition"]
+        assert calls == expected_initial + ["Nutrition"]
 
         from datetime import date, timedelta
 
@@ -219,7 +300,7 @@ def test_combined_candidate_to_atomic_activation(monkeypatch):
         assert pending["status"] == "AwaitingConfirmation", pending
         assert pending["result"]["generation_method"] == "ValidatedRetention"
         assert pending["result"]["call_id"] is None
-        assert calls == ["Coach", "Nutrition", "Nutrition", "Coach"]
+        assert calls == expected_initial + ["Nutrition", "Coach"]
         assert client.get("/api/me/plans").json()["current"]["version"] == 2
         activated = client.post(
             f"/api/me/plans/pairs/{pending['result']['pair_id']}/confirm",
@@ -246,7 +327,12 @@ def test_combined_candidate_to_atomic_activation(monkeypatch):
         changed = client.get(f"/api/requests/{progression_id}").json()
         assert changed["status"] == "AwaitingConfirmation", changed
         assert changed["result"]["generation_method"] == "Model"
-        assert calls == ["Coach", "Nutrition", "Nutrition", "Coach", "Coach", "Nutrition"]
+        assert calls == expected_initial + [
+            "Nutrition",
+            "Coach",
+            "Coach",
+            "Nutrition",
+        ]
 
         direct = client.post(
             f"/api/conversations/{session['id']}/messages",
@@ -269,4 +355,9 @@ def test_combined_candidate_to_atomic_activation(monkeypatch):
         assert latest.status_code == 200, latest.text
         assert not run_once(direct_id)
         assert client.get(f"/api/requests/{direct_id}").json()["status"] == "Waiting"
-        assert calls == ["Coach", "Nutrition", "Nutrition", "Coach", "Coach", "Nutrition"]
+        assert calls == expected_initial + [
+            "Nutrition",
+            "Coach",
+            "Coach",
+            "Nutrition",
+        ]

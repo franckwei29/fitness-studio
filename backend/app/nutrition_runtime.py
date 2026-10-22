@@ -8,6 +8,7 @@ from app.activation import PAIR_RULE_VERSION, pair_fingerprint, plan_fingerprint
 from app.agent_contracts import COMMON_INSTRUCTION
 from app.agent_graph import graph_config, persistent_graph
 from app.agent_versions import resolve_version
+from app.candidate_correction import correction_context, queue_correction
 from app.catalogue import food_catalogue
 from app.cycle_requests import cycle_baseline
 from app.database import transaction
@@ -92,6 +93,7 @@ def run_nutrition(claim):
                     "training": training.content,
                     "request": request.payload["content"],
                     "agent_version_id": version.id,
+                    **correction_context(db, item, request, authorized),
                     **revision_context(db, request, authorized, "Nutrition"),
                     "retained_nutrition": retained_nutrition(db, request, authorized, training),
                     **(
@@ -129,7 +131,7 @@ def run_nutrition(claim):
         output = NutritionProposal.model_validate(state["candidate"]["proposal"])
         with transaction() as db:
             existing = db.scalar(select(WorkItem).where(WorkItem.id == claim.work_id).with_for_update())
-            if existing and existing.status == "Completed":
+            if existing and existing.status in {"Completed", "Superseded"}:
                 return {"outcome": db.get(Request, existing.request_id).result}
             item, request = lock_claim(db, claim)
             authorized = execution_context(db, item, request)
@@ -252,6 +254,9 @@ def run_nutrition(claim):
                 result["status"] = "AwaitingConfirmation"
             request.status = result["status"]
             item.wait_reason = None if pair else "CandidateValidation"
+            if not pair:
+                result.update(queue_correction(db, item, request, plan))
+                request.status = result["status"]
             item.lease_until = None
             request.result = result
             db.add(
@@ -260,7 +265,11 @@ def run_nutrition(claim):
                     sender="Nutrition",
                     content="Your plan pair is ready for review and confirmation."
                     if pair
-                    else "The nutrition candidate needs revision before it can be used.",
+                    else (
+                        "The nutrition candidate failed validation. A bounded correction is queued; your active plan has not changed."
+                        if result["status"] == "Queued"
+                        else "Nutrition correction stopped at its limit. Review the validation issues before submitting a new request. No invalid plan was activated."
+                    ),
                     cards=[{"type": "PlanPairReview", "pair_id": pair.id if pair else None}],
                 )
             )

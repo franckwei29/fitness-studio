@@ -43,6 +43,7 @@ flowchart LR
 - Workers check current permissions, input versions, task leases, and immutable agent versions. The model proposes structured outputs; application services validate and commit changes.
 - Training and nutrition candidates form an exact validated pair. Activation atomically updates current pointers. Historical versions remain available.
 - Every paid dispatch needs a budget reservation and an application-wide rate permit. Unknown provider usage retains funds and is not reported as zero cost. Releasing an expired local concurrency slot does not reconcile billing or retry the original request.
+- Structurally valid candidates that fail domain validation receive at most two corrective generations shared across the original request's roles. Each correction receives the failed candidate and recorded violations, uses the original deadline and budget scopes, and preserves invalid versions in history. Exhausting the revision or call limit stops the request without activation.
 - The scheduler handles deterministic notifications and approved canary observation rules. Missing observations cannot count as a successful release.
 
 ## Source layout

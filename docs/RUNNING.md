@@ -37,6 +37,8 @@ Enabling calls requires a Gemini API key, `MODEL_CALLS_ENABLED=true`, and suffic
 
 Normal chat makes one inference request per response. Combined training and nutrition generation normally makes two. Viewing pages, approving saved candidates, and deterministic reminders make no model calls. Rate and daily limits are application-wide; Google account limits may be lower. Unknown provider usage retains its reservation until reconciled, rather than being treated as free.
 
+Domain validation failures may queue up to two additional corrective generations shared by the original request. Corrections use the same budget scopes, call ceiling, and deadline. Invalid candidates are retained in history and never activated; exhausting a correction limit stops the request.
+
 ## Processes and diagnostics
 
 ```sh

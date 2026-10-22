@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from app.admission import router as admission_router
 from app.agent_release import router as release_router
 from app.budget_admin import router as budget_router
+from app.candidate_correction import router as correction_router
 from app.chat import router as chat_router
 from app.cycle_requests import router as cycle_router
 from app.database import transaction
@@ -120,6 +121,7 @@ def logout(request: Request, response: Response, user: User = Depends(principal)
 app.include_router(admission_router)
 
 app.include_router(chat_router)
+app.include_router(correction_router)
 
 app.include_router(plans_router)
 

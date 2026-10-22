@@ -44,6 +44,7 @@ WAIT_MESSAGES = {
     "UsageReconciliation": "A previous model call needs usage reconciliation before continuing.",
     "TechnicalReview": "This request needs a technical review.",
     "ExecutorUnavailable": "The assigned service is not available yet.",
+    "CandidateValidation": "The candidate failed validation and cannot be used. Review the recorded issues.",
 }
 
 
@@ -64,6 +65,10 @@ def request_view(db, row):
         result["status_message"] = (
             "Your cycle candidate is ready. Review and activate the new plan to complete the review."
         )
+    if row.status == "Queued" and (row.result or {}).get("correction_work_id"):
+        result["status_message"] = f"Correcting a candidate that failed validation (revision {row.revisions} of 2)."
+    if row.status == "Stopped" and (row.result or {}).get("stop_reason") == "CorrectionLimit":
+        result["status_message"] = "Correction stopped at its limit. No invalid plan was activated."
     return result
 
 
