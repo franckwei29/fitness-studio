@@ -8,7 +8,7 @@ from app.activation import ActivationConflict, activate_pair
 from app.admission import view
 from app.catalogue import exercise_catalogue, food_catalogue
 from app.database import transaction
-from app.models import CurrentPlans, Member, MemberGroup, PlanPair, PlanVersion, User
+from app.models import CurrentPlans, Member, MemberGroup, PlanPair, PlanVersion, Request, User
 from app.security import principal
 
 router = APIRouter(prefix="/api")
@@ -51,6 +51,14 @@ def my_plans(user: User = Depends(principal)):
                 .order_by(PlanPair.created_at.desc(), PlanPair.id)
             )
         )
+        ended = set(
+            db.scalars(
+                select(Request.id).where(
+                    Request.id.in_([plan.request_id for plan in plans]),
+                    Request.status.in_(["Cancelled", "Stopped"]),
+                )
+            )
+        )
         return {
             "member_status": member.status,
             "catalogue_labels": {
@@ -60,7 +68,20 @@ def my_plans(user: User = Depends(principal)):
                 group and group.configuration.get("capabilities", {}).get("substitutions") is True
             ),
             "current": view(current) if current else None,
-            "plans": [view(plan) | {"availability": availability(member, group, plan)} for plan in plans],
+            "plans": [
+                view(plan)
+                | {
+                    "availability": (
+                        {
+                            "usable": False,
+                            "reason": "The source request ended. This candidate cannot be activated.",
+                        }
+                        if plan.request_id in ended and plan.status != "Active"
+                        else availability(member, group, plan)
+                    )
+                }
+                for plan in plans
+            ],
             "pairs": [view(pair) for pair in pairs],
         }
 

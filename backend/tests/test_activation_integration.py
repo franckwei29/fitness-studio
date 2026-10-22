@@ -89,6 +89,16 @@ def candidate():
         )
 
 
+@pytest.mark.parametrize("status", ["Cancelled", "Stopped"])
+def test_ended_request_cannot_activate_a_valid_pair(candidate, status):
+    with transaction() as db:
+        db.get(Request, candidate["request_id"]).status = status
+    with pytest.raises(ActivationConflict, match="unavailable or expired"):
+        activate_pair(**candidate)
+    with transaction() as db:
+        assert db.get(CurrentPlans, candidate["member_id"]).version == 0
+
+
 def test_exact_pair_activates_once(candidate):
     result = activate_pair(**candidate)
     assert result["status"] == "Committed"

@@ -92,7 +92,12 @@ def activate_pair(member_id, pair_id, request_id, actor_id, expected_current_ver
         if member.status != "Accepted":
             raise ActivationConflict("Current admission is required.")
         request = db.scalar(select(Request).where(Request.id == request_id).with_for_update())
-        if not request or request.user_id != member.user_id or request.deadline <= now():
+        if (
+            not request
+            or request.user_id != member.user_id
+            or request.deadline <= now()
+            or request.status in {"Cancelled", "Stopped"}
+        ):
             raise ActivationConflict("The request is unavailable or expired.")
         group = db.scalar(select(MemberGroup).where(MemberGroup.id == member.group_id).with_for_update())
         capabilities = group.configuration.get("capabilities", {}) if group else {}
@@ -194,8 +199,13 @@ def activate_training(member_id, plan_id, actor_id, expected_current_version, op
         plan = db.scalar(select(PlanVersion).where(PlanVersion.id == plan_id).with_for_update())
         if not plan or plan.member_id != member_id or plan.kind != "Training":
             raise ActivationConflict("Training candidate not found.")
-        request = db.get(Request, plan.request_id)
-        if not request or request.kind not in {"Training", "CycleReview"} or request.deadline <= now():
+        request = db.scalar(select(Request).where(Request.id == plan.request_id).with_for_update())
+        if (
+            not request
+            or request.kind not in {"Training", "CycleReview"}
+            or request.deadline <= now()
+            or request.status in {"Cancelled", "Stopped"}
+        ):
             raise ActivationConflict("A current standalone training request is required.")
         group = db.scalar(select(MemberGroup).where(MemberGroup.id == member.group_id).with_for_update())
         current = db.scalar(select(CurrentPlans).where(CurrentPlans.member_id == member_id).with_for_update())

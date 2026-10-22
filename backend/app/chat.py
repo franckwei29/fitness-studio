@@ -12,12 +12,14 @@ from sqlalchemy import select
 from app.admission import fingerprint, view
 from app.database import transaction
 from app.models import (
+    AuditEvent,
     ChatSession,
     CurrentPlans,
     IdempotencyRecord,
     Member,
     MemberGroup,
     Message,
+    ModelCall,
     Request,
     RequestEvent,
     User,
@@ -66,11 +68,19 @@ def request_view(db, row):
             "Your cycle candidate is ready. Review and activate the new plan to complete the review."
         )
     if row.status == "Queued" and (row.result or {}).get("correction_work_id"):
-        result["status_message"] = f"Correcting a candidate that failed validation (revision {row.revisions} of 2)."
+        result["status_message"] = (
+            f"Correcting a candidate that failed validation (revision {row.revisions} of 2)."
+        )
     if row.status == "Stopped" and (row.result or {}).get("stop_reason") == "CorrectionLimit":
         result["status_message"] = "Correction stopped at its limit. No invalid plan was activated."
     if row.status == "Stopped" and (row.result or {}).get("stop_reason") == "DeadlineExpired":
-        result["status_message"] = "This request expired. Its history is retained; submit a new request to continue."
+        result["status_message"] = (
+            "This request expired. Its history is retained; submit a new request to continue."
+        )
+    if row.status == "Cancelled":
+        result["status_message"] = (
+            "Request cancelled. Any model call already dispatched may still incur usage; its result will not be applied."
+        )
     return result
 
 
@@ -242,10 +252,78 @@ def submit_message(identifier: str, body: Submission, user: User = Depends(princ
         return result
 
 
+@router.get("/requests")
+def requests(user: User = Depends(principal)):
+    with transaction() as db:
+        rows = db.scalars(
+            select(Request)
+            .where(Request.user_id == user.id)
+            .order_by(Request.created_at.desc(), Request.id)
+            .limit(100)
+        )
+        return [request_view(db, row) for row in rows]
+
+
 @router.get("/requests/{identifier}")
 def request_status(identifier: str, user: User = Depends(principal)):
     with transaction() as db:
         return request_view(db, owned(db, Request, identifier, user))
+
+
+@router.post("/requests/{identifier}/cancel")
+def cancel_request(identifier: str, user: User = Depends(principal)):
+    from app.budget import cancel_reserved_in_transaction
+
+    with transaction() as db:
+        owned(db, Request, identifier, user)
+        items = list(
+            db.scalars(
+                select(WorkItem)
+                .where(WorkItem.request_id == identifier)
+                .order_by(WorkItem.id)
+                .with_for_update()
+            )
+        )
+        request = db.scalar(
+            select(Request)
+            .where(Request.id == identifier)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if request.status == "Cancelled":
+            return request_view(db, request)
+        if request.status not in {"Queued", "Running", "Waiting", "AwaitingConfirmation"}:
+            raise HTTPException(409, "This request has already ended and cannot be cancelled.")
+        for item in items:
+            if item.status in {"Queued", "Running", "Waiting"}:
+                item.status = "Cancelled"
+                item.wait_reason = "UserCancelled"
+                item.lease_until = None
+                item.fence += 1
+        request.status = "Cancelled"
+        request.result = (request.result or {}) | {"status": "Cancelled", "stop_reason": "UserCancelled"}
+        # Dispatch acquires the same request lock, so Reserved calls cannot race
+        # past cancellation. Dispatched and unknown calls keep their evidence.
+        for call_id in db.scalars(
+            select(ModelCall.id)
+            .where(
+                ModelCall.request_id == identifier,
+                ModelCall.status == "Reserved",
+            )
+            .order_by(ModelCall.id)
+        ):
+            cancel_reserved_in_transaction(db, call_id)
+        db.add(RequestEvent(request_id=identifier, event_type="cancelled", payload={"status": "Cancelled"}))
+        db.add(
+            AuditEvent(
+                actor_id=user.id,
+                request_id=identifier,
+                subject_id=identifier,
+                event_type="request.cancelled",
+                details={},
+            )
+        )
+        return request_view(db, request)
 
 
 @router.get("/requests/{identifier}/events")

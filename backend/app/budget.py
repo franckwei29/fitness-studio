@@ -16,7 +16,7 @@ def reserve(request_id, role, model, amount_micros, price_version, scope_keys, r
     scopes = sorted(set(scope_keys) | {"global"})
     with transaction() as db:
         request = db.scalar(select(Request).where(Request.id == request_id).with_for_update())
-        if not request or request.deadline <= now():
+        if not request or request.deadline <= now() or request.status in {"Cancelled", "Stopped"}:
             raise BudgetDenied("The request is missing or expired.")
         if request.model_calls >= request.max_model_calls:
             raise BudgetDenied("The request has reached its model call limit.")
@@ -50,12 +50,20 @@ def reserve(request_id, role, model, amount_micros, price_version, scope_keys, r
         return call.id
 
 
-def mark_dispatching(call_id):
+def mark_dispatching(call_id, claim=None):
     """Only the first caller may dispatch; replay must never repeat the request."""
     with transaction() as db:
+        if claim is not None:
+            from app.policy import execution_context
+            from app.work_queue import lock_claim
+
+            item, request = lock_claim(db, claim)
+            execution_context(db, item, request)
         call = db.scalar(select(ModelCall).where(ModelCall.id == call_id).with_for_update())
         if call is None or call.status != "Reserved":
             return False
+        if claim is not None and call.request_id != claim.request_id:
+            raise BudgetDenied("The dispatch reservation belongs to a different request.")
         call.status = "Dispatching"
         return True
 
@@ -107,25 +115,30 @@ def settle(call_id, actual_micros, usage, provider_id=None, output=None):
 def cancel_undispatched(call_id):
     """Return funds only when dispatch has provably never started."""
     with transaction() as db:
-        call = db.scalar(select(ModelCall).where(ModelCall.id == call_id).with_for_update())
-        if not call:
-            raise ValueError("Model call not found.")
-        if call.status == "Cancelled":
-            return
-        if call.status != "Reserved":
-            raise ValueError("A dispatched call requires usage reconciliation.")
-        reservations = list(db.scalars(select(BudgetReservation).where(BudgetReservation.call_id == call_id)))
-        amounts = {row.account_id: row.amount_micros for row in reservations}
-        accounts = db.scalars(
-            select(BudgetAccount)
-            .where(BudgetAccount.id.in_(amounts))
-            .order_by(BudgetAccount.scope_key)
-            .with_for_update()
-        )
-        for account in accounts:
-            account.reserved_micros -= amounts[account.id]
-        for reservation in reservations:
-            reservation.settled = True
-        call.status = "Cancelled"
-        call.actual_micros = 0
-        call.completed_at = now()
+        cancel_reserved_in_transaction(db, call_id)
+
+
+def cancel_reserved_in_transaction(db, call_id):
+    """Release an undispatched reservation in the caller's transaction."""
+    call = db.scalar(select(ModelCall).where(ModelCall.id == call_id).with_for_update())
+    if not call:
+        raise ValueError("Model call not found.")
+    if call.status == "Cancelled":
+        return
+    if call.status != "Reserved":
+        raise ValueError("A dispatched call requires usage reconciliation.")
+    reservations = list(db.scalars(select(BudgetReservation).where(BudgetReservation.call_id == call_id)))
+    amounts = {row.account_id: row.amount_micros for row in reservations}
+    accounts = db.scalars(
+        select(BudgetAccount)
+        .where(BudgetAccount.id.in_(amounts))
+        .order_by(BudgetAccount.scope_key)
+        .with_for_update()
+    )
+    for account in accounts:
+        account.reserved_micros -= amounts[account.id]
+    for reservation in reservations:
+        reservation.settled = True
+    call.status = "Cancelled"
+    call.actual_micros = 0
+    call.completed_at = now()

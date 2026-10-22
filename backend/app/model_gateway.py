@@ -81,7 +81,7 @@ def generate(claim, instruction, context, output_type, max_output_tokens=2048):
         with transaction() as db:
             item, request = lock_claim(db, claim)
             execution_context(db, item, request)
-        if not mark_dispatching(call_id):
+        if not mark_dispatching(call_id, claim=claim):
             raise ModelUnavailable("This model call has already been dispatched.")
         dispatched = True
         try:

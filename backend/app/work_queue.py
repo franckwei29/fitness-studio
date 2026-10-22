@@ -39,6 +39,10 @@ def claim_next(lease_seconds=120, request_id=None):
         if item is None:
             return None
         request = db.scalar(select(Request).where(Request.id == item.request_id).with_for_update())
+        if request.status in {"Cancelled", "Stopped", "Completed"}:
+            item.status = "Stopped"
+            item.wait_reason = "RequestEnded"
+            return None
         user = db.get(User, request.user_id)
         if request.deadline <= now() or item.attempts >= 3 or not user or not user.active:
             item.status = request.status = "Stopped"
@@ -72,8 +76,8 @@ def lock_claim(db, claim):
     ):
         raise StaleClaim("The task claim has expired or been superseded.")
     request = db.scalar(select(Request).where(Request.id == item.request_id).with_for_update())
-    if request.deadline <= now():
-        raise StaleClaim("The request deadline has expired.")
+    if request.deadline <= now() or request.status in {"Cancelled", "Stopped", "Completed"}:
+        raise StaleClaim("The request has ended or its deadline has expired.")
     return item, request
 
 

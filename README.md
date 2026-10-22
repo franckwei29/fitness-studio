@@ -45,6 +45,7 @@ flowchart LR
 - Every paid dispatch needs a budget reservation and an application-wide rate permit. Unknown provider usage retains funds and is not reported as zero cost. Releasing an expired local concurrency slot does not reconcile billing or retry the original request.
 - Structurally valid candidates that fail domain validation receive at most two corrective generations shared across the original request's roles. Each correction receives the failed candidate and recorded violations, uses the original deadline and budget scopes, and preserves invalid versions in history. Exhausting the revision or call limit stops the request without activation.
 - The scheduler closes expired queued and waiting requests, expires pending approvals, recovers abandoned leases conservatively, and handles deterministic notifications and approved canary observation rules. Expiry preserves completed work and accounting evidence, including reservations for unknown provider usage. Missing observations cannot count as a successful release.
+- Users can cancel their pending or running requests from a conversation or the Requests page, including cycle reviews awaiting confirmation. Cancellation fences task execution and blocks subsequent candidate activation. Already dispatched calls retain their accounting lifecycle; cancellation does not promise a provider refund or erase history. Completed requests cannot be cancelled.
 
 ## Source layout
 
