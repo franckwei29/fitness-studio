@@ -204,9 +204,9 @@ def run_coach(claim):
             else:
                 result.update(queue_correction(db, item, request, plan))
                 text = (
-                    "The training candidate failed validation. A bounded correction is queued; your active plan has not changed."
+                    "We’re checking and revising your training draft. Your current routine is unchanged."
                     if result["status"] == "Queued"
-                    else "Training correction stopped at its limit. Review the recorded validation issues before submitting a new request. No invalid plan was activated."
+                    else "We couldn’t finish a suitable training draft. Your current routine is unchanged. Check Activity for the next step."
                 )
             request.status = result["status"]
             request.result = result

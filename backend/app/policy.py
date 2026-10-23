@@ -165,7 +165,7 @@ def execution_context(db, item, request):
     if user.role != "Member":
         raise PolicyDenied("This task requires a member account.")
     member = db.scalar(select(Member).where(Member.user_id == user.id))
-    if role == "Intake" and not member:
+    if (role == "Intake" or request.kind == "Auto") and not member:
         group = db.scalar(select(MemberGroup).where(MemberGroup.name == "Default"))
         if not group:
             raise PolicyDenied("The default intake configuration is unavailable.")
@@ -180,7 +180,7 @@ def execution_context(db, item, request):
         }
     if not member:
         raise PolicyDenied("A confirmed member profile is required.")
-    if role != "Intake" and member.status != "Accepted":
+    if role != "Intake" and request.kind != "Auto" and member.status != "Accepted":
         raise PolicyDenied("Admission must be valid before planning can continue.")
     group = db.get(MemberGroup, member.group_id)
     if not group:
@@ -191,9 +191,9 @@ def execution_context(db, item, request):
 
     verify_planning_baseline(db, request, member.id)
     required = set()
-    if role == "Coach":
+    if role == "Coach" and request.kind != "Auto":
         required.add("training")
-    if role == "Nutrition":
+    if role == "Nutrition" and request.kind != "Auto":
         required.add("nutrition")
     if request.kind == "Combined":
         required.update(["training", "nutrition"])

@@ -1,0 +1,3 @@
+import { ContactRound, Dumbbell, Salad, Settings2 } from 'lucide-react';
+export const roleName=(role:string)=>({Intake:'Front Desk',Coach:'Coach',Nutrition:'Nutrition Assistant',TechnicalManager:'Studio assistant'}[role]||role);
+export function AgentAvatar({role}:{role:string}){const Icon=role==='Coach'?Dumbbell:role==='Nutrition'?Salad:role==='TechnicalManager'?Settings2:ContactRound;return <span className={`agent-avatar ${role.toLowerCase()}`} role="img" aria-label={`${roleName(role)} avatar`}><span className="portrait-hair"/><span className="portrait-shirt"/><span className="portrait-face"/><span className="role-icon"><Icon size={13}/></span></span>;}

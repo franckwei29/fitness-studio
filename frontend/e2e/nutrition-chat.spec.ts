@@ -21,10 +21,10 @@ test('nutrition questions are distinct from nutrition plan generation', async ({
     await route.fulfill({ json: data });
   });
   await page.goto('/');
-  await page.getByLabel('Request type').selectOption({ label: 'Nutrition questions' });
+  await expect(page.getByLabel('Request type')).toHaveCount(0);
   await page.getByLabel('Message', { exact: true }).fill('Explain the portions in my current meal example.');
   await page.getByRole('button', { name: 'Send message' }).click();
-  await expect(page.getByRole('heading', { name: 'Nutrition guidance' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your fitness assistant' })).toBeVisible();
   await expect(page.getByText('This is a question about your current meal example.')).toBeVisible();
-  expect(submitted.purpose).toBe('NutritionChat');
+  expect(submitted.purpose).toBe('Auto');
 });

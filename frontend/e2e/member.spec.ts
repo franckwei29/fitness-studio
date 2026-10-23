@@ -9,8 +9,8 @@ test('member registers, confirms intake, and retains a conversation',async({page
   await page.getByLabel('Email address').fill(`browser-${Date.now()}@example.test`);
   await page.getByLabel('Password',{exact:true}).fill('Browser-test-123!');
   await page.getByRole('button',{name:'Create account',exact:true}).click();
-  await expect(page.getByRole('button',{name:'My profile & intake'})).toBeVisible();
-  await page.getByRole('button',{name:'My profile & intake'}).click();
+  await expect(page.getByRole('button',{name:'My profile'})).toBeVisible();
+  await page.getByRole('button',{name:'My profile'}).click();
   await page.getByRole('button',{name:'Start my intake'}).click();
   await page.getByLabel('Age',{exact:true}).fill('28');
   await page.getByLabel('Training experience').selectOption('Beginner');
@@ -26,7 +26,7 @@ test('member registers, confirms intake, and retains a conversation',async({page
   await page.getByRole('textbox',{name:'Message',exact:true}).fill('我想每周训练三天');
   await page.getByRole('button',{name:'Send message'}).click();
   await expect(page.getByText('我想每周训练三天',{exact:true})).toBeVisible();
-  await expect(page.getByText('Your request is queued.')).toBeVisible();
+  await expect(page.getByText('Your update will start when assistance is available.')).toBeVisible();
   await page.reload();
   await page.getByRole('button',{name:'Your fitness journey'}).click();
   await expect(page.getByText('我想每周训练三天',{exact:true})).toBeVisible();

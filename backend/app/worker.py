@@ -34,7 +34,11 @@ def execute(claim):
     try:
         with transaction() as db:
             request_kind = db.get(Request, claim.request_id).kind
-        if request_kind == "Evaluation":
+        if request_kind == "Auto":
+            from app.intent_router import run_auto
+
+            run_auto(claim)
+        elif request_kind == "Evaluation":
             run_evaluation(claim)
         elif claim.role == "TechnicalManager" or (request_kind == "Chat" and claim.role != "Intake"):
             run_conversation(claim)

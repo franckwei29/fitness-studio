@@ -295,9 +295,9 @@ def run_nutrition(claim):
                     else "Your standalone nutrition candidate is ready for review and confirmation."
                     if validation["passed"]
                     else (
-                        "The nutrition candidate failed validation. A bounded correction is queued; your active plan has not changed."
+                        "We’re checking and revising your meal draft. Your current routine is unchanged."
                         if result["status"] == "Queued"
-                        else "Nutrition correction stopped at its limit. Review the validation issues before submitting a new request. No invalid plan was activated."
+                        else "We couldn’t finish a suitable meal draft. Your current routine is unchanged. Check Activity for the next step."
                     ),
                     cards=[
                         {

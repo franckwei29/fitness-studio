@@ -127,6 +127,8 @@ def conversations(user: User = Depends(principal)):
 
 @router.get("/conversations/{identifier}")
 def conversation(identifier: str, user: User = Depends(principal)):
+    from app.member_experience import activity_view
+
     with transaction() as db:
         row = owned(db, ChatSession, identifier, user)
         messages = db.scalars(
@@ -144,18 +146,34 @@ def conversation(identifier: str, user: User = Depends(principal)):
             )
             or 0,
             "messages": [view(item) for item in messages],
-            "requests": [request_view(db, item) for item in requests],
+            "requests": [
+                request_view(db, item) | {"experience": activity_view(db, item)} for item in requests
+            ],
         }
 
 
 class Submission(BaseModel):
     content: str = Field(min_length=1, max_length=12000)
     key: str = Field(min_length=8, max_length=128)
-    purpose: Literal["Chat", "NutritionChat", "Intake", "Training", "Nutrition", "Combined", "Operations"] = (
-        "Chat"
-    )
+    purpose: Literal[
+        "Auto", "Chat", "NutritionChat", "Intake", "Training", "Nutrition", "Combined", "Operations"
+    ] = "Chat"
     operations_group_id: str | None = None
     incident_id: str | None = None
+    action: (
+        Literal[
+            "ViewPlans",
+            "ConsultCoach",
+            "ConsultNutrition",
+            "ConsultIntake",
+            "KeepChat",
+            "Intake",
+            "ContinuePlanning",
+            "AllowCombined",
+        ]
+        | None
+    ) = None
+    source_request_id: str | None = None
 
 
 @router.post("/conversations/{identifier}/messages", status_code=202)
@@ -170,6 +188,11 @@ def submit_message(identifier: str, body: Submission, user: User = Depends(princ
                 "content": body.content,
                 "purpose": body.purpose,
                 "operations_group_id": body.operations_group_id,
+                **(
+                    {"action": body.action, "source_request_id": body.source_request_id}
+                    if body.purpose == "Auto"
+                    else {}
+                ),
                 **({"incident_id": body.incident_id} if body.incident_id else {}),
             }
         )
@@ -184,6 +207,10 @@ def submit_message(identifier: str, body: Submission, user: User = Depends(princ
             if previous.fingerprint != digest:
                 raise HTTPException(409, "This submission key was used for different content.")
             return previous.result
+        if body.purpose == "Auto":
+            from app.intent_router import submit_auto
+
+            return submit_auto(db, session, body, user)
         member = db.scalar(select(Member).where(Member.user_id == user.id))
         if body.operations_group_id and user.role != "Owner":
             raise HTTPException(403, "Only owners can select operations agent configurations.")

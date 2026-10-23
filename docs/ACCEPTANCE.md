@@ -2,6 +2,20 @@
 
 This record distinguishes implementation checks from complete acceptance. It is not a declaration that all requirements are finished. Tests using synthetic model outputs do not prove live Gemini behavior. A successful page load does not prove every action on that page.
 
+## Sage Studio delivery — 24 October 2026
+
+The unified conversation, Sage visual system, structured plans, Activity and account allowance are implemented. The detailed behavior is recorded in [Sage Studio](SAGE_STUDIO.md). This entry supersedes the older interface descriptions and test counts below; the historical model/activation evidence remains identified by its original environment and revision.
+
+- **275 backend tests passed** against isolated MySQL and Redis. The new cases cover read-only dual-plan access, stable roles, delayed handoff fencing, explicit delegation, linked-plan scope choices, preserved deadlines, admission continuation, cancellation/expiry, invitation dismissal, account-scoped rolling usage, unavailable usage, stale plan summaries and catalogue-derived nutrition totals. Provider inference is synthetic in these tests.
+- **28 browser tests passed**, including real isolated registration, confirmed intake and persisted conversation, plus explicit fixture coverage for specialist choice, planning/review controls, cancellation, event replay and all existing owner workflows. A subsequent six-case focused pass checks the final mobile layout. Production TypeScript/Vite builds and Ruff checks passed.
+- The actual local deployment retained existing member and owner accounts. Both authenticated successfully and loaded 13 navigation destinations without page script errors. Existing approvals, profiles, plans, Redis history and unknown-cost holds were preserved.
+- The real member interface was checked at 320, 390, 768, 1024 and 1440 pixels. Light/dark appearance, reduced motion and 200% CSS text/layout scaling were inspected. This scaling check is not presented as a test of every browser's native zoom implementation.
+- Deterministic **View my plans** displayed both existing plans. An explicit Nutrition Assistant selection produced one handoff and retained the Front Desk author on the earlier answer. These actions sent no model requests.
+- One live Gemini ordinary-conversation request completed for a newly created fictional account with no health profile, assessment, plans or prior conversation. It returned an answer without delegating or changing a plan; the account usage changed to **1 of 100**. The configured provider remains `gemini-3.5-flash-lite`. This verifies the live ordinary-conversation path, not every possible model classification.
+- An attempted test using the existing member's plan context was rejected by automatic approval review before execution because earlier external-data authorization covered only aggregate analysis. The safe replacement above sent generic text and empty personal context. Existing member health-derived data was not sent again for this redesign's acceptance.
+- Limits remain 10 shared calls per rolling hour and 100 per account per rolling 24 hours. No quota history was reset and no unknown charge was treated as zero. Clicking a direct plan-view or role-choice control does not consume a call.
+- The application runs at the local acceptance address on port 8091. GitHub is source storage, not a public deployment. Private credentials, runtime evidence and screenshots are excluded from tracked source.
+
 ## Current evidence
 
 - At application revision `8bbaea1`, the complete backend suite passed **250 tests** and the browser suite passed **22 tests**. The frontend production build passed. These counts are not a claim of complete scenario coverage.

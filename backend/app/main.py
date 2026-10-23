@@ -18,6 +18,7 @@ from app.feedback import router as feedback_router
 from app.group_configuration import router as group_router
 from app.incidents import router as incidents_router
 from app.member_admin import router as member_admin_router
+from app.member_experience import router as experience_router
 from app.models import LoginSession, User
 from app.notifications import router as notifications_router
 from app.operations import router as operations_router
@@ -154,3 +155,6 @@ app.include_router(substitution_router)
 app.include_router(cycle_router)
 
 app.include_router(usage_router)
+
+
+app.include_router(experience_router)

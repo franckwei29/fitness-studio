@@ -41,6 +41,10 @@ def generate(claim, instruction, context, output_type, max_output_tokens=2048):
                 raise PolicyDenied("The model context does not match the task agent version.")
             version = verify_version(db.get(AgentVersion, version_id), item.role)
             model, instruction = version.model, version.prompt
+        if request.kind == "Auto":
+            from app.intent_router import AUTO_INSTRUCTION
+
+            instruction += "\n" + AUTO_INSTRUCTION
         if request.kind == "Chat" and item.role in {"Coach", "Nutrition"}:
             instruction += CHAT_TASK_INSTRUCTION
         price = price_for(model)

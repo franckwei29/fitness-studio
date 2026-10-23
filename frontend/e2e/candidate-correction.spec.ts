@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test';
 
 // Presentation fixture; backend tests cover the durable correction workflow.
 for (const scenario of [
-  { status: 'Queued', message: 'Correcting a candidate that failed validation (revision 1 of 2).' },
-  { status: 'Stopped', message: 'This request expired. Its history is retained; submit a new request to continue.' },
+  { status: 'Queued', message: 'We are checking and revising your draft.' },
+  { status: 'Stopped', message: 'This update expired. Start a new conversation to continue.' },
 ]) {
 test(`member sees the ${scenario.status} request explanation`, async ({ page }) => {
   const conversation = { id: 'conversation', title: 'Plan correction', active_role: 'Coach' };
@@ -15,7 +15,7 @@ test(`member sees the ${scenario.status} request explanation`, async ({ page }) 
     else if (path === '/api/conversations') data = [conversation];
     else if (path === '/api/conversations/conversation') data = {
       conversation, messages: [{ id: 'message', sender: 'Coach', content: 'The training candidate failed validation. A bounded correction is queued; your active plan has not changed.' }],
-      requests: [{ id: 'request', kind: 'Combined', active_role:scenario.status==='Queued'?'Coach':null, status: scenario.status, status_message: scenario.message }],
+      requests: [{ id: 'request', kind: 'Combined', active_role:scenario.status==='Queued'?'Coach':null, status: scenario.status, status_message: scenario.message,experience:{id:'request',title:'Your routine update',status:scenario.status==='Stopped'?'Expired':'In progress',detail:scenario.message,stages:[]} }],
     };
     else throw new Error(`Unexpected request: ${path}`);
     await route.fulfill({ json: data });

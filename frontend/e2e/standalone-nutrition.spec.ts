@@ -27,11 +27,11 @@ test('member activates standalone nutrition without a training pair', async ({ p
   });
   await page.goto('/');
   await page.getByRole('button', { name: 'My plans', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Confirm this plan pair' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Confirm standalone nutrition' }).click();
+  await expect(page.getByRole('button', { name: 'Use these plans' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Use this nutrition plan' }).click();
   await expect(page.getByRole('status')).toHaveText('Your nutrition plan is now active.');
   await expect(page.getByRole('heading', { name: 'Independent meal example', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Confirm standalone nutrition' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Use this nutrition plan' })).toHaveCount(0);
   expect(submission.expected_current_version).toBe(0);
   expect(submission.operation_key).toBeTruthy();
   expect(errors).toEqual([]);

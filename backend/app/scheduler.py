@@ -14,11 +14,13 @@ def scheduled_maintenance():
     from app.canary_monitor import monitor_canaries
     from app.evaluation_lifecycle import close_incomplete_evaluations
     from app.expiry import expire_waits
+    from app.intent_router import resume_admission_goals
     from app.work_queue import recover_expired
 
     created = 0
     for operation in (
         recover_expired,
+        resume_admission_goals,
         expire_waits,
         close_incomplete_evaluations,
         generate_reminders,

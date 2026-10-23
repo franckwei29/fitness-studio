@@ -1,0 +1,11 @@
+import { useEffect, useState } from 'react';
+import { Zap, Info, RefreshCw } from 'lucide-react';
+import { api } from './api';
+type Usage={account_used:number;account_limit:number;shared_hourly_limit:number;next_capacity_at:string|null;service_availability:string;blocking_reason:string|null};
+export function UsageAllowance(){const [data,setData]=useState<Usage|null>(null),[error,setError]=useState('');
+ useEffect(()=>{let live=true;const load=()=>api<Usage>('/me/usage').then(v=>{if(live){setData(v);setError('');}}).catch(e=>{if(live)setError(e.message);});void load();const timer=setInterval(load,20000);return()=>{live=false;clearInterval(timer);};},[]);
+ if(error)return <div className="allowance-card" role="status"><Info/><div><strong>Usage unavailable</strong><p>{error}</p></div></div>;
+ if(!data)return <div className="allowance-card"><RefreshCw className="spin"/><span>Loading your allowance…</span></div>;
+ const percentage=Math.min(100,Math.max(0,data.account_used/data.account_limit*100));
+ return <section className="allowance-card"><div className="usage-ring" style={{background:`conic-gradient(var(--sage-accent) ${percentage}%, var(--sage-soft) 0)`}} role="img" aria-label={`${data.account_used} of ${data.account_limit} calls used`}><strong>{Math.round(percentage)}%</strong></div><div className="allowance-body"><div className="section-heading"><h3>AI allowance</h3><span className="status-pill"><Zap size={14}/>{data.service_availability}</span></div><p><strong>{data.account_used} of {data.account_limit} calls</strong> used · Last 24 hours</p>{data.blocking_reason&&<p className="allowance-reason">{data.blocking_reason}</p>}<details><summary>How my allowance works</summary><p>A plan can use more than one call. Each call leaves this allowance 24 hours after it was used. The studio also shares a limit of {data.shared_hourly_limit} calls per hour. Available personal allowance does not guarantee immediate assistance.</p>{data.next_capacity_at&&<p>Next recorded call leaves your window: {new Date(data.next_capacity_at).toLocaleString()}.</p>}<p>These are AI calls, not messages. Reading saved plans does not use this allowance. Service availability is a snapshot; specialist budgets may also apply.</p></details></div></section>;
+}

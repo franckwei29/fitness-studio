@@ -29,8 +29,29 @@ def availability(member, group, plan):
     return {"usable": True, "reason": None}
 
 
+def nutrition_totals(plan):
+    """Display catalogue-derived quantities, never a model-supplied daily target."""
+    from pydantic import ValidationError
+
+    from app.nutrition import NutritionProposal, calculate_totals
+
+    if plan.kind != "Nutrition":
+        return None
+    try:
+        return calculate_totals(
+            NutritionProposal.model_validate(
+                {key: value for key, value in plan.content.items() if key != "nutrient_totals"}
+            ),
+            food_catalogue(),
+        )
+    except (ValidationError, ValueError):
+        return None
+
+
 @router.get("/me/plans")
 def my_plans(user: User = Depends(principal)):
+    from app.member_experience import activity_view
+
     with transaction() as db:
         member = db.scalar(select(Member).where(Member.user_id == user.id))
         if not member:
@@ -71,6 +92,7 @@ def my_plans(user: User = Depends(principal)):
             "plans": [
                 view(plan)
                 | {
+                    "nutrition_totals": nutrition_totals(plan),
                     "availability": (
                         {
                             "usable": False,
@@ -78,11 +100,17 @@ def my_plans(user: User = Depends(principal)):
                         }
                         if plan.request_id in ended and plan.status != "Active"
                         else availability(member, group, plan)
-                    )
+                    ),
                 }
                 for plan in plans
             ],
             "pairs": [view(pair) for pair in pairs],
+            "activity": {
+                request.id: activity_view(db, request)
+                for request in db.scalars(
+                    select(Request).where(Request.id.in_({p.request_id for p in plans}))
+                )
+            },
         }
 
 

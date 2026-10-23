@@ -19,7 +19,7 @@ test('member inspects confirmed versions and changes without restoring old facts
     }else throw Error(`Unexpected request: ${path}`);
     await route.fulfill({json:data});
   });
-  await page.goto('/');await page.getByRole('button',{name:'My profile & intake',exact:true}).click();
+  await page.goto('/');await page.getByRole('button',{name:'My profile',exact:true}).click();
   await expect(page.getByText('Confirmed profile version 2',{exact:true})).toBeVisible();expect(historyReads).toBe(0);
   await page.getByRole('button',{name:'View profile history',exact:true}).click();
   await page.locator('summary').filter({hasText:/^Version 2/}).click();

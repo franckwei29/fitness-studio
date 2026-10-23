@@ -1,27 +1,12 @@
 import { useEffect, useState } from 'react';
+import { ClipboardCheck, CircleCheck, Clock3, CircleMinus, MessageCircle, RefreshCw, ArrowUpRight } from 'lucide-react';
 import { api } from './api';
-
-type RequestRow = {id:string;kind:string;status:string;status_message?:string;created_at:string};
-const cancellable = new Set(['Queued','Running','Waiting','AwaitingConfirmation']);
-
-export function Requests(){
-  const [rows,setRows]=useState<RequestRow[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState('');
-  async function load(){setRows(await api<RequestRow[]>('/requests'));}
-  useEffect(()=>{load().catch(e=>setError(e.message));},[]);
-  async function cancel(id:string){
-    setBusy(id);setError('');
-    try{await api(`/requests/${id}/cancel`,{});await load();}
-    catch(e){setError((e as Error).message);}finally{setBusy('');}
-  }
-  return <section className="intake-page"><span className="eyebrow">YOUR ACTIVITY</span><h1>Requests</h1>
-    <p className="muted">Your latest 100 requests across conversations, plan changes, and cycle reviews. Cancelling stops further work. Calls already dispatched may still incur usage; their results will not be applied.</p>
-    <button className="text-button" onClick={()=>load().catch(e=>setError(e.message))}>Refresh requests</button>
-    {error&&<p role="alert" className="error">{error}</p>}
-    {!rows.length&&<p>No requests yet.</p>}
-    {rows.map(row=><article className="plan-card" key={row.id}><h2>{row.kind} · {row.status}</h2>
-      <p className="muted">Submitted {new Date(row.created_at.endsWith('Z')?row.created_at:`${row.created_at}Z`).toLocaleString()}</p>
-      {row.status_message&&<p role="status">{row.status_message}</p>}
-      {cancellable.has(row.status)&&<button className="text-button" disabled={!!busy} onClick={()=>cancel(row.id)}>{busy===row.id?'Cancelling…':'Cancel request'}</button>}
-    </article>)}
-  </section>;
+import { UsageAllowance } from './UsageAllowance';
+export type ActivityRow={id:string;title:string;status:string;detail:string;needs_user_action:boolean;action:string;conversation_id:string|null;created_at:string;can_cancel:boolean;in_progress:boolean;stages:{role:string;done:boolean;running:boolean}[]};
+export function Requests({onOpen}:{onOpen?:(page:'chat'|'plans',conversation?:string)=>void}){
+ const [rows,setRows]=useState<ActivityRow[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(''),[filter,setFilter]=useState('all'),[cancel,setCancel]=useState(''),[loaded,setLoaded]=useState(false);
+ useEffect(()=>{let live=true;const load=()=>api<ActivityRow[]>('/me/activity').then(v=>{if(live){setRows(v);setLoaded(true);setError('');}}).catch(e=>{if(live)setError(e.message);});void load();const timer=setInterval(load,5000);return()=>{live=false;clearInterval(timer);};},[]);
+ async function stop(id:string){setBusy(id);try{await api(`/requests/${id}/cancel`,{});setRows(await api('/me/activity'));setCancel('');}catch(e){setError((e as Error).message);}finally{setBusy('');}}
+ const filtered=rows.filter(r=>filter==='all'||(filter==='needs'?r.needs_user_action:r.in_progress));
+ return <section className="intake-page activity-page"><div className="page-heading"><h1>Your activity</h1><p>See what’s happening and what needs your attention.</p></div><UsageAllowance/><div className="activity-filters" aria-label="Filter activity">{[['all','All activity'],['needs','Needs you'],['progress','In progress']].map(([id,label])=><button key={id} aria-pressed={filter===id} onClick={()=>setFilter(id)}>{label}</button>)}</div>{error&&<p role="alert" className="error">{error}</p>}{!loaded&&!error&&<p><RefreshCw className="spin"/> Loading your activity…</p>}{loaded&&!filtered.length&&<div className="empty-panel"><CircleCheck/><h3>You’re all caught up</h3><p>{filter==='all'?'Your conversations and plan updates will appear here.':'There are no updates in this view.'}</p></div>}<div className="activity-list">{filtered.map(r=>{const Icon=r.needs_user_action?ClipboardCheck:r.in_progress?Clock3:r.status==='Cancelled'?CircleMinus:r.action==='plans'?CircleCheck:MessageCircle;return <article className="activity-card" key={r.id}><span className="type-icon"><Icon/></span><div className="activity-copy"><h3>{r.title}</h3><p>{r.detail}</p><div className="activity-meta"><span className={`status-pill ${r.needs_user_action?'attention':''}`}>{r.status}</span><time dateTime={r.created_at}>{new Date(r.created_at).toLocaleString()}</time></div>{r.can_cancel&&<><button className="text-button" onClick={()=>setCancel(r.id)}>Cancel update</button>{cancel===r.id&&<div className="confirmation-inline"><p>Stop this update? Existing plans stay unchanged. Calls already sent may still count toward your allowance.</p><button disabled={!!busy} onClick={()=>stop(r.id)}>{busy===r.id?'Cancelling…':'Confirm cancellation'}</button><button onClick={()=>setCancel('')}>Keep update</button></div>}</>}</div><button className={r.needs_user_action?'primary':'secondary'} onClick={()=>onOpen?.(r.action==='plans'?'plans':'chat',r.conversation_id||undefined)}>{r.action==='plans'?(r.needs_user_action?'Review plans':'View plans'):'Open conversation'}<ArrowUpRight size={16}/></button></article>;})}</div></section>;
 }
