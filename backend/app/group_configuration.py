@@ -113,6 +113,14 @@ def propose(identifier: str, body: Proposal, user: User = Depends(owner)):
                 expires_at=now() + timedelta(hours=24),
             )
         )
+        db.add(
+            AuditEvent(
+                actor_id=user.id,
+                event_type="configuration.proposed",
+                subject_id=row.id,
+                details={"group_id": group.id, "fingerprint": digest},
+            )
+        )
         return view(row)
 
 

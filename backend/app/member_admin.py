@@ -33,6 +33,23 @@ def members(user: User = Depends(owner)):
         ]
 
 
+@router.get("/{identifier}")
+def member_detail(identifier: str, user: User = Depends(owner)):
+    with transaction() as db:
+        member = db.get(Member, identifier)
+        account = db.get(User, member.user_id) if member else None
+        if not member or not account:
+            raise HTTPException(404, "Member not found.")
+        return {
+            "id": member.id,
+            "display_name": account.display_name,
+            "status": member.status,
+            "group_id": member.group_id,
+            "profile_version": member.profile_version,
+            "created_at": member.created_at,
+        }
+
+
 class Assignment(BaseModel):
     group_id: str
     expected_group_id: str

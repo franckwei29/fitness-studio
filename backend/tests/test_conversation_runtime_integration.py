@@ -68,6 +68,7 @@ def test_owner_operational_reply_uses_summary_context(monkeypatch):
             json={
                 "key": str(uuid4()),
                 "purpose": "Operations",
+                "operations_ai": True,
                 "content": "Explain current request activity.",
                 "operations_group_id": group_id,
             },

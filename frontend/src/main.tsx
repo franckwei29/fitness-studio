@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Activity, LogOut, MessageSquare, Plus, NotebookTabs, CircleGauge, Bell, ContactRound, Settings2 } from 'lucide-react';
+import { Activity, LogOut, MessageSquare, Plus, NotebookTabs, CircleGauge, Bell, ContactRound, Settings2, Users, ShieldCheck, Wallet, TriangleAlert, FlaskConical, Rocket, ArrowLeft } from 'lucide-react';
 import { api, setCsrf } from './api';
 import './style.css';
 import { Intake } from './Intake';
@@ -17,21 +17,43 @@ import { Releases } from './Releases';
 import { Requests } from './Requests';
 import { ConversationView, type Conversation, type Task, type History } from './ConversationView';
 import { watchRequest } from './requestEvents';
+import { readRoute, routeHash, ownerPages, notifyOwnerChange, type OwnerTarget, type Page } from './ownerNavigation';
 
 type User = {id:string;display_name:string;role:string};
 type Auth = {user:User;csrf_token:string};
 function App() {
   const [user,setUser]=useState<User|null>(null),[loading,setLoading]=useState(true);
   const [error,setError]=useState(''),[register,setRegister]=useState(false),[busy,setBusy]=useState(false);
-  const [sessions,setSessions]=useState<Conversation[]>([]),[selected,setSelected]=useState('');
+  const [route,setRoute]=useState(readRoute);
+  const [sessions,setSessions]=useState<Conversation[]>([]),[selected,setSelected]=useState(readRoute().conversation || '');
+  const [workspaceRevision,setWorkspaceRevision]=useState(0),[opening,setOpening]=useState(false);
+  const navigationGeneration=useRef(0);
+  const page=route.page;
+  function navigate(target:OwnerTarget, conversation=selected){navigationGeneration.current++;window.location.hash=routeHash(target,conversation);setRoute({...target,conversation});}
+  function setPage(value:Page){navigate({page:value});}
+  useEffect(()=>{const changed=()=>{navigationGeneration.current++;const next=readRoute();setRoute(next);if(next.conversation)setSelected(next.conversation);};window.addEventListener('hashchange',changed);return()=>window.removeEventListener('hashchange',changed);},[]);
   const [history,setHistory]=useState<History|null>(null),[draft,setDraft]=useState('');
   const pendingSubmission=useRef<{content:string;id:string;key:string}|null>(null);
   const [operationsGroups,setOperationsGroups]=useState<{id:string;name:string}[]>([]),[operationsGroup,setOperationsGroup]=useState('');
   useEffect(()=>{if(user?.role==='Owner')api<{id:string;name:string}[]>('/owner/groups').then(setOperationsGroups).catch(e=>setError(e.message));else{setOperationsGroups([]);setOperationsGroup('');}},[user]);
-  const [page,setPage]=useState<'chat'|'intake'|'approvals'|'plans'|'dashboard'|'notifications'|'groups'|'incidents'|'budgets'|'members'|'versions'|'releases'|'requests'>('chat');
   function signedIn(auth:Auth){setCsrf(auth.csrf_token);setUser(auth.user);}
   useEffect(()=>{api<Auth>('/auth/me').then(signedIn).catch(()=>{}).finally(()=>setLoading(false));},[]);
-  useEffect(()=>{if(user) api<Conversation[]>('/conversations').then(setSessions).catch(e=>setError(e.message));},[user]);
+  useEffect(()=>{if(!user)return;let live=true;const navigation=navigationGeneration.current;api<Conversation[]>('/conversations').then(async rows=>{
+    if(!live)return;setSessions(items=>navigation===navigationGeneration.current?rows:[...items,...rows.filter(row=>!items.some(item=>item.id===row.id))]);
+    const stored=sessionStorage.getItem(`studio-conversation:${user.id}`);
+    const requested=readRoute().conversation;
+    let id=requested || (stored&&rows.some(row=>row.id===stored)?stored:'') || (user.role==='Owner'?rows[0]?.id:'');
+    if(live&&id&&navigation===navigationGeneration.current)setSelected(id);
+  }).catch(e=>{if(live)setError(e.message);});return()=>{live=false;};},[user]);
+  useEffect(()=>{if(!user||!selected)return;sessionStorage.setItem(`studio-conversation:${user.id}`,selected);setDraft(sessionStorage.getItem(`studio-draft:${user.id}:${selected}`)||'');},[user?.id,selected]);
+  function updateDraft(value:string){setDraft(value);if(user&&selected)sessionStorage.setItem(`studio-draft:${user.id}:${selected}`,value);}
+  async function ownerChanged(target?:OwnerTarget){
+    notifyOwnerChange();setWorkspaceRevision(value=>value+1);
+    const actual=target || route;
+    if(selected&&actual.id){try{await api(`/owner/conversations/${selected}/receipts`,{key:crypto.randomUUID(),target:{page:actual.page,id:actual.id,section:actual.section}});}catch(e){setError(`The latest record can still be viewed, but its conversation receipt could not be synchronized: ${(e as Error).message}`);}}
+    await refreshHistory.current();
+  }
+
   const refreshHistory=useRef<()=>Promise<void>>(async()=>{});
   const historyGeneration=useRef(0);
   useEffect(()=>{
@@ -55,10 +77,10 @@ function App() {
     return ()=>{if(timer)clearTimeout(timer);close.forEach(stop=>stop());};
   },[selected,pendingRequests]);
   async function analyzeIncident(incidentId:string){
-    const conversation=await api<Conversation>('/conversations',{});
-    await api(`/conversations/${conversation.id}/messages`,{key:crypto.randomUUID(),purpose:'Operations',incident_id:incidentId,content:'Analyze this incident. Separate observed facts from possible causes and suggest the next checks without executing changes.'});
+    const id=selected||await newConversation();
+    await api(`/conversations/${id}/messages`,{key:crypto.randomUUID(),purpose:'Operations',incident_id:incidentId,content:'Analyze this incident. Separate observed facts from possible causes and suggest the next checks without executing changes.'});
     setSessions(await api<Conversation[]>('/conversations'));
-    setSelected(conversation.id);setPage('chat');
+    setSelected(id);navigate({page:'chat'},id);await refreshHistory.current();
   }
   async function authenticate(event:FormEvent<HTMLFormElement>){
     event.preventDefault();setBusy(true);setError('');
@@ -66,8 +88,8 @@ function App() {
     try{signedIn(await api<Auth>(register?'/auth/register':'/auth/login',fields));}catch(e){setError((e as Error).message);}finally{setBusy(false);}
   }
   async function newConversation(){
-    const row=await api<Conversation>('/conversations',{});
-    setSessions(items=>[row,...items]);setPage('chat');setSelected(row.id);return row.id;
+    navigationGeneration.current++;setOpening(true);
+    try{const row=await api<Conversation>('/conversations',{});setSessions(items=>[row,...items.filter(item=>item.id!==row.id)]);setSelected(row.id);navigate({page:'chat'},row.id);return row.id;}finally{setOpening(false);}
   }
   async function submit(content:string,action?:string,source?:string){
     if(!content.trim()||busy)return;setBusy(true);setError('');
@@ -77,23 +99,31 @@ function App() {
       const key=pending?.content===signature&&pending.id===id?pending.key:crypto.randomUUID();
       pendingSubmission.current={content:signature,id,key};
       await api(`/conversations/${id}/messages`,{content,key,purpose:user?.role==='Owner'?'Operations':'Auto',action,source_request_id:source,operations_group_id:user?.role==='Owner'?(operationsGroup||undefined):undefined});
-      pendingSubmission.current=null;setDraft('');
+      pendingSubmission.current=null;updateDraft('');
       const value=await api<History>(`/conversations/${id}`);setHistory(value);
     }catch(e){setError((e as Error).message);}finally{setBusy(false);}
   }
   async function send(event:FormEvent){event.preventDefault();await submit(draft);}
-  function openTarget(target:'chat'|'plans',conversation?:string){if(conversation)setSelected(conversation);setPage(target);}
-  function discuss(text:string){setDraft(text);setPage('chat');}
+  function openTarget(target:'chat'|'plans',conversation?:string){if(conversation)setSelected(conversation);navigate({page:target},conversation||selected);}
+  function discuss(text:string){updateDraft(text);setPage('chat');}
   async function cancelRequest(id:string){
     if(busy)return;setBusy(true);setError('');
     try{await api<Task>(`/requests/${id}/cancel`,{});
-      await refreshHistory.current();
+      if(user?.role==='Owner')await ownerChanged({page:'requests',id});else await refreshHistory.current();
     }catch(e){setError((e as Error).message);}finally{setBusy(false);}
   }
-  async function signOut(){try{await api('/auth/logout',{});setUser(null);setSelected('');setSessions([]);setCsrf('');}catch(e){setError((e as Error).message);}}
+  async function signOut(){try{await api('/auth/logout',{});setUser(null);setSelected('');setSessions([]);setDraft('');setHistory(null);setCsrf('');window.location.hash='';setRoute({page:'chat'});}catch(e){setError((e as Error).message);}}
   if(loading)return <main className="loading">Opening your studio…</main>;
   if(!user)return <main className="auth-layout"><section className="intro"><div className="brand"><Activity/> FITNESS STUDIO</div><span className="eyebrow">BUILD A ROUTINE THAT FITS</span><h1>Your goals.<br/>A clearer path.</h1><p>Personal training and nutrition guidance, connected in one thoughtful workspace.</p><div className="intro-foot">Move with purpose. Build with consistency.</div></section><section className="auth-panel"><form onSubmit={authenticate}><span className="eyebrow">YOUR PERSONAL WORKSPACE</span><h2>{register?'Start your journey':'Welcome back'}</h2><p className="muted">{register?'Create an account to begin your intake.':'Sign in to continue your fitness journey.'}</p>{register&&<label>Full name<input name="display_name" required maxLength={100} autoComplete="name"/></label>}<label>Email address<input name="email" type="email" required autoComplete="email"/></label><label>Password<input name="password" type="password" required minLength={10} maxLength={128} autoComplete={register?'new-password':'current-password'}/></label>{error&&<p role="alert" className="error">{error}</p>}<button className="primary" disabled={busy}>{busy?'Please wait…':register?'Create account':'Sign in'}</button><button type="button" className="text-button" onClick={()=>{setRegister(!register);setError('');}}>{register?'Already have an account? Sign in':'New here? Create an account'}</button></form></section></main>;
   const destinations=user.role==='Owner'?[['dashboard','Studio overview'],['approvals','Review queue'],['members','Members'],['groups','Member groups'],['incidents','Incidents'],['budgets','Budget limits'],['versions','Agent versions'],['releases','Agent releases']]:[['plans','My plans'],['intake','My profile']];
-  return <div className="workspace sage-studio"><aside><div className="brand"><span className="brand-symbol"><Activity/></span>Fitness Studio</div><button className="new-chat" onClick={()=>newConversation().catch(e=>setError(e.message))}><Plus size={18}/>New conversation</button><div className="main-navigation"><button className={`profile-nav ${page==='chat'?'selected':''}`} onClick={()=>setPage('chat')}><MessageSquare size={20}/>Assistant</button>{destinations.map(([id,label])=><button key={id} className={`profile-nav ${page===id?'selected':''}`} onClick={()=>setPage(id as typeof page)}>{id==='plans'?<NotebookTabs size={20}/>:id==='intake'?<ContactRound size={20}/>:<Settings2 size={20}/>} {label}</button>)}<button className={`profile-nav ${page==='requests'?'selected':''}`} onClick={()=>setPage('requests')}><CircleGauge size={20}/>Activity</button><button className={`profile-nav ${page==='notifications'?'selected':''}`} onClick={()=>setPage('notifications')}><Bell size={20}/>Updates</button></div><label className="mobile-history">Conversation<select aria-label="Open a conversation" value={selected} onChange={e=>{setSelected(e.target.value);setPage('chat');}}><option value="">Choose a conversation</option>{sessions.map(session=><option key={session.id} value={session.id}>{session.title}</option>)}</select></label><span className="eyebrow">CONVERSATIONS</span><nav>{sessions.map(session=><button key={session.id} className={selected===session.id?'active':''} onClick={()=>{setPage('chat');setSelected(session.id);}}><MessageSquare size={16}/>{session.title}</button>)}</nav><div className="account"><span className="avatar">{user.display_name.slice(0,1)}</span><div><strong>{user.display_name}</strong><small>{user.role==='Owner'?'Studio owner':'Member workspace'}</small></div><button aria-label="Sign out" onClick={signOut}><LogOut size={18}/></button></div></aside><main className="conversation">{error&&<p role="alert" className="error banner">{error}</p>}{page==='requests'?<Requests onOpen={openTarget}/>:page==='intake'?<Intake/>:page==='approvals'?<Approvals/>:page==='plans'?<Plans onDiscuss={discuss}/>:page==='dashboard'?<Dashboard/>:page==='notifications'?<Notifications onNavigate={setPage}/>:page==='groups'?<Groups/>:page==='incidents'?<Incidents onAnalyze={analyzeIncident}/>:page==='budgets'?<Budgets/>:page==='members'?<Members/>:page==='versions'?<AgentVersions/>:page==='releases'?<Releases/>:<>{user.role==='Owner'&&operationsGroups.length>1&&<label className="operations-picker">Agent configuration<select value={operationsGroup} onChange={e=>setOperationsGroup(e.target.value)}><option value="">Default</option>{operationsGroups.filter(g=>g.name!=='Default').map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></label>}<ConversationView history={history?.conversation.id===selected?history:null} draft={draft} setDraft={setDraft} busy={busy} owner={user.role==='Owner'} onSend={send} onAction={(action,content,source)=>void submit(content,action,source)} onCancel={cancelRequest} onPage={setPage}/></>}</main></div>;
+  const navIcons:Partial<Record<Page,React.ReactNode>>={dashboard:<CircleGauge size={20}/>,approvals:<ShieldCheck size={20}/>,members:<ContactRound size={20}/>,groups:<Users size={20}/>,incidents:<TriangleAlert size={20}/>,budgets:<Wallet size={20}/>,versions:<FlaskConical size={20}/>,releases:<Rocket size={20}/>};
+  const detailProps={targetId:route.id,targetSection:route.section,onChanged:(target?:OwnerTarget)=>void ownerChanged(target)};
+  const allowed=user.role==='Owner'||!ownerPages.includes(page);
+  return <div className="workspace sage-studio"><aside><div className="brand"><span className="brand-symbol"><Activity/></span>Fitness Studio</div><button className="new-chat" disabled={busy||opening} onClick={()=>newConversation().catch(e=>setError(e.message))}><Plus size={18}/>New conversation</button><div className="main-navigation"><button className={`profile-nav ${page==='chat'?'selected':''}`} onClick={()=>setPage('chat')}><MessageSquare size={20}/>Assistant</button>{destinations.map(([id,label])=><button key={id} className={`profile-nav ${page===id?'selected':''}`} onClick={()=>setPage(id as typeof page)}>{id==='plans'?<NotebookTabs size={20}/>:id==='intake'?<ContactRound size={20}/>:(navIcons[id as Page]||<Settings2 size={20}/>)} {label}</button>)}<button className={`profile-nav ${page==='requests'?'selected':''}`} onClick={()=>setPage('requests')}><CircleGauge size={20}/>Activity</button><button className={`profile-nav ${page==='notifications'?'selected':''}`} onClick={()=>setPage('notifications')}><Bell size={20}/>Updates</button></div><label className="mobile-history">Conversation<select aria-label="Open a conversation" value={selected} onChange={e=>{setSelected(e.target.value);navigate({page:'chat'},e.target.value);}}><option value="">Choose a conversation</option>{sessions.map(session=><option key={session.id} value={session.id}>{session.title}</option>)}</select></label><span className="eyebrow">CONVERSATIONS</span><nav>{sessions.map(session=><button key={session.id} className={selected===session.id?'active':''} onClick={()=>{setSelected(session.id);navigate({page:'chat'},session.id);}}><MessageSquare size={16}/>{session.title}</button>)}</nav><div className="account"><span className="avatar">{user.display_name.slice(0,1)}</span><div><strong>{user.display_name}</strong><small>{user.role==='Owner'?'Studio owner':'Member workspace'}</small></div><button aria-label="Sign out" onClick={signOut}><LogOut size={18}/></button></div></aside><main className="conversation">{error&&<p role="alert" className="error banner">{error}</p>}{page!=='chat'&&<div className="workspace-return"><button className="text-button" onClick={()=>setPage('chat')}><ArrowLeft size={17}/>Back to conversation</button><span>Your conversation stays open</span></div>}
+    {page!=='chat'&&<div className="business-surface" key={`${page}:${route.id||''}:${route.section||''}`}>{!allowed?<section className="intake-page"><h1>Owner access required</h1><p>This business record is available only to a studio owner.</p></section>:page==='requests'?<Requests targetId={route.id} onChanged={user.role==='Owner'?(target)=>void ownerChanged(target):undefined} onOpen={openTarget}/>:page==='intake'?<Intake/>:page==='approvals'?<Approvals {...detailProps}/>:page==='plans'?<Plans onDiscuss={discuss}/>:page==='dashboard'?<Dashboard {...detailProps}/>:page==='notifications'?<Notifications targetId={route.id} onChanged={user.role==='Owner'?detailProps.onChanged:undefined} onNavigate={setPage}/>:page==='groups'?<Groups {...detailProps}/>:page==='incidents'?<Incidents {...detailProps} onAnalyze={analyzeIncident}/>:page==='budgets'?<Budgets {...detailProps}/>:page==='members'?<Members {...detailProps}/>:page==='versions'?<AgentVersions {...detailProps}/>:page==='releases'?<Releases {...detailProps}/>:null}</div>}
+    <div className="persistent-conversation" hidden={page!=='chat'}>
+      {user.role==='Owner'&&operationsGroups.length>1&&<label className="operations-picker">Agent configuration<select value={operationsGroup} onChange={e=>setOperationsGroup(e.target.value)}><option value="">Default</option>{operationsGroups.filter(g=>g.name!=='Default').map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></label>}
+      <ConversationView key={selected||'welcome'} history={history?.conversation.id===selected?history:null} draft={draft} setDraft={updateDraft} busy={busy||opening} owner={user.role==='Owner'} onSend={send} onAction={(action,content,source)=>void submit(content,action,source)} onCancel={cancelRequest} onPage={setPage} onOwnerOpen={navigate} onOwnerChanged={ownerChanged} workspaceRevision={workspaceRevision} onOwnerPrompt={content=>void submit(content)}/>
+    </div></main></div>;
 }
 createRoot(document.getElementById('root')!).render(<App/>);

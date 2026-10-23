@@ -159,6 +159,7 @@ class Submission(BaseModel):
         "Auto", "Chat", "NutritionChat", "Intake", "Training", "Nutrition", "Combined", "Operations"
     ] = "Chat"
     operations_group_id: str | None = None
+    operations_ai: bool = False
     incident_id: str | None = None
     action: (
         Literal[
@@ -188,6 +189,7 @@ def submit_message(identifier: str, body: Submission, user: User = Depends(princ
                 "content": body.content,
                 "purpose": body.purpose,
                 "operations_group_id": body.operations_group_id,
+                **({"operations_ai": True} if body.operations_ai else {}),
                 **(
                     {"action": body.action, "source_request_id": body.source_request_id}
                     if body.purpose == "Auto"
@@ -207,6 +209,8 @@ def submit_message(identifier: str, body: Submission, user: User = Depends(princ
             if previous.fingerprint != digest:
                 raise HTTPException(409, "This submission key was used for different content.")
             return previous.result
+        if body.operations_ai and (user.role != "Owner" or body.purpose != "Operations"):
+            raise HTTPException(403, "AI operations analysis requires an owner operations request.")
         if body.purpose == "Auto":
             from app.intent_router import submit_auto
 
@@ -234,6 +238,15 @@ def submit_message(identifier: str, body: Submission, user: User = Depends(princ
             raise HTTPException(403, "Intake conversations require a member account.")
         if body.purpose == "Operations" and user.role != "Owner":
             raise HTTPException(403, "Owner access is required.")
+        if (
+            user.role == "Owner"
+            and body.purpose == "Operations"
+            and not body.incident_id
+            and not body.operations_ai
+        ):
+            from app.owner_workspace import submit_owner_message
+
+            return submit_owner_message(db, session, body, user, digest)
         if body.purpose in {"Training", "Nutrition", "Combined"} and (
             not member or member.status != "Accepted"
         ):

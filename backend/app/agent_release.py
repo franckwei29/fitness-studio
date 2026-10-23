@@ -188,6 +188,14 @@ def propose_release(body: ReleaseProposal, user: User = Depends(owner)):
                 expires_at=now() + timedelta(hours=24),
             )
         )
+        db.add(
+            AuditEvent(
+                actor_id=user.id,
+                event_type="release.proposed",
+                subject_id=change.id,
+                details={"group_id": group.id, "fingerprint": digest},
+            )
+        )
         return view(change)
 
 

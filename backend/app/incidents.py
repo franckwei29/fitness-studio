@@ -58,6 +58,19 @@ def incidents(user: User = Depends(owner)):
         return result
 
 
+@router.get("/{identifier}")
+def incident_detail(identifier: str, user: User = Depends(owner)):
+    with transaction() as db:
+        row = db.get(Incident, identifier)
+        if not row:
+            raise HTTPException(404, "Incident not found.")
+        item = db.get(WorkItem, row.evidence.get("work_id"))
+        return view(row) | {
+            "current_fence": item.fence if item else None,
+            "task_status": item.status if item else None,
+        }
+
+
 class Closure(BaseModel):
     reason: str = Field(min_length=1, max_length=3000)
 

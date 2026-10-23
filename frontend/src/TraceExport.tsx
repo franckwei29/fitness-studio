@@ -1,7 +1,8 @@
+import type { OwnerTarget } from './ownerNavigation';
 import { useState } from 'react';
 import { api } from './api';
 
-export function TraceExport({id,fingerprint,configured}:{id:string;fingerprint:string;configured:boolean}){
+export function TraceExport({id,fingerprint,configured,onChanged}:{id:string;fingerprint:string;configured:boolean;onChanged?:(target?:OwnerTarget)=>void}){
   const [busy,setBusy]=useState(false),[error,setError]=useState('');
   const [result,setResult]=useState<{status:string;run_id:string;message:string}|null>(null);
   async function download(){
@@ -14,7 +15,7 @@ export function TraceExport({id,fingerprint,configured}:{id:string;fingerprint:s
     }catch(e){setError((e as Error).message);}finally{setBusy(false);}
   }
   async function publish(){setBusy(true);setError('');try{
-    setResult(await api(`/owner/requests/${id}/trace/langsmith`,{fingerprint}));
+    setResult(await api(`/owner/requests/${id}/trace/langsmith`,{fingerprint}));onChanged?.({page:'dashboard',id,section:'trace'});
   }catch(e){setError((e as Error).message);}finally{setBusy(false);}}
   return <section aria-label="Trace export"><h3>Export operational evidence</h3>
     <p className="muted">The snapshot includes role, status, version references, token counts, and costs. Personal profile fields, conversation text, prompts, model output, credentials, and free-text diagnostic details are omitted.</p>

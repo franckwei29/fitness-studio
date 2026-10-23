@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 
 from app.admission import view
 from app.database import transaction
-from app.models import Member, MemberGroup, Notification, Observation, ProfileSnapshot, User, now
+from app.models import AuditEvent, Member, MemberGroup, Notification, Observation, ProfileSnapshot, User, now
 from app.security import principal
 
 router = APIRouter(prefix="/api/me/notifications")
@@ -39,6 +39,9 @@ def mark_read(identifier: str, user: User = Depends(principal)):
             raise HTTPException(404, "Notification not found.")
         if row.read_at is None:
             row.read_at = now()
+            db.add(
+                AuditEvent(actor_id=user.id, subject_id=row.id, event_type="notification.read", details={})
+            )
         return view(row)
 
 

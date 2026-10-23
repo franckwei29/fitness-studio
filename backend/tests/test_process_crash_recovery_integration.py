@@ -64,6 +64,7 @@ def test_process_exit_after_settlement_publishes_once(owner_client):
         json=dict(
             key=str(uuid4()),
             purpose="Operations",
+            operations_ai=True,
             content="Explain the supplied synthetic operations evidence.",
         ),
     )

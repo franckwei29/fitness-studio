@@ -86,6 +86,8 @@ def activity_view(db, request):
         "FoodSubstitution": "Your meal replacement",
         "Operations": "Studio analysis",
     }.get(request.kind, "Your update")
+    if (request.payload or {}).get("local_lookup"):
+        title = "Workspace lookup"
     status, detail, action = (
         "Waiting to start",
         "Your update will start when assistance is available.",
@@ -247,6 +249,15 @@ def activity(user: User = Depends(principal)):
             select(Request).where(Request.user_id == user.id).order_by(Request.created_at.desc()).limit(100)
         )
         return [activity_view(db, row) for row in rows]
+
+
+@router.get("/activity/{identifier}")
+def activity_detail(identifier: str, user: User = Depends(principal)):
+    with transaction() as db:
+        row = db.scalar(select(Request).where(Request.id == identifier, Request.user_id == user.id))
+        if not row:
+            raise HTTPException(404, "Activity not found.")
+        return activity_view(db, row)
 
 
 @router.get("/plan-summary")

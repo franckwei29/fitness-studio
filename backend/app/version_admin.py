@@ -82,6 +82,22 @@ def versions(user: User = Depends(owner)):
         }
 
 
+@router.get("/{identifier}")
+def version_detail(identifier: str, user: User = Depends(owner)):
+    with transaction() as db:
+        row = db.get(AgentVersion, identifier)
+        if not row:
+            raise HTTPException(404, "Agent version not found.")
+        groups = db.scalars(select(MemberGroup))
+        return view(row) | {
+            "configured_groups": [
+                {"id": group.id, "name": group.name}
+                for group in groups
+                if group.configuration.get("agent_versions", {}).get(row.role) == row.id
+            ]
+        }
+
+
 @router.post("", status_code=201)
 def create_candidate(body: Candidate, user: User = Depends(owner)):
     try:

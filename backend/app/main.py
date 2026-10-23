@@ -22,6 +22,7 @@ from app.member_experience import router as experience_router
 from app.models import LoginSession, User
 from app.notifications import router as notifications_router
 from app.operations import router as operations_router
+from app.owner_workspace import router as owner_workspace_router
 from app.plans import router as plans_router
 from app.readiness import check_readiness
 from app.rollback_recovery import router as rollback_recovery_router
@@ -131,6 +132,7 @@ app.include_router(correction_router)
 app.include_router(plans_router)
 
 app.include_router(operations_router)
+app.include_router(owner_workspace_router)
 app.include_router(trace_export_router)
 
 app.include_router(feedback_router)

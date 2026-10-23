@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.admission import fingerprint
 from app.database import transaction
-from app.models import IdempotencyRecord, User, now
+from app.models import AuditEvent, IdempotencyRecord, User, now
 from app.security import owner
 from app.settings import get_settings
 from app.trace_data import request_trace
@@ -128,4 +128,15 @@ def export_langsmith(identifier: str, body: ExportSnapshot, user: User = Depends
     with transaction() as db:
         record = db.scalar(query.with_for_update())
         record.result = result
+        # Record the export against its subject, outside the request execution
+        # trace. Exporting a snapshot must not change that snapshot's fingerprint
+        # or turn a retry into a new remote dispatch.
+        db.add(
+            AuditEvent(
+                actor_id=user.id,
+                subject_id=identifier,
+                event_type="trace.exported",
+                details={"status": status, "run_id": run_id, "fingerprint": body.fingerprint},
+            )
+        )
     return result

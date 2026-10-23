@@ -1,14 +1,15 @@
+import type { OwnerTarget } from './ownerNavigation';
 import { useState, type FormEvent } from 'react';
 import { api } from './api';
 
-export function RollbackRecovery({ releaseId, groupVersion }: { releaseId: string; groupVersion?: number }) {
+export function RollbackRecovery({ releaseId, groupVersion, onChanged }: { releaseId: string; groupVersion?: number; onChanged?: (target?: OwnerTarget) => void }) {
   const [reason, setReason] = useState(''), [busy, setBusy] = useState(false);
   const [error, setError] = useState(''), [submitted, setSubmitted] = useState(false);
   async function propose(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError('');
     try {
-      await api(`/owner/releases/${releaseId}/recovery-proposals`, { expected_group_version: groupVersion, reason });
-      setSubmitted(true);
+      const saved = await api<{id:string}>(`/owner/releases/${releaseId}/recovery-proposals`, { expected_group_version: groupVersion, reason });
+      setSubmitted(true); onChanged?.({page:'groups',id:saved.id,section:'change'});
     } catch (error) { setError((error as Error).message); } finally { setBusy(false); }
   }
   return <section aria-label="Blocked rollback recovery">
