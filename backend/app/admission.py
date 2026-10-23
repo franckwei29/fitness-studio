@@ -145,6 +145,23 @@ def confirm(identifier: str, body: Confirmation, user: User = Depends(principal)
         row = owned_assessment(db, identifier, user)
         if row.status == "Accepted" and row.confirmed_facts == body.facts:
             return view(row)
+        if (
+            row.status == "PendingOwnerReview"
+            and row.confirmed_facts == body.facts
+            and body.expected_version <= row.version
+        ):
+            pending = db.scalar(
+                select(Approval).where(
+                    Approval.subject_kind == "IntakeAssessment",
+                    Approval.subject_id == row.id,
+                    Approval.subject_version == row.version,
+                    Approval.fingerprint == approval_basis(row),
+                    Approval.decision == "Pending",
+                    Approval.expires_at > now(),
+                )
+            )
+            if pending:
+                return view(row)
         if row.status not in {"Collecting", "NeedsInformation", "PendingOwnerReview"}:
             raise HTTPException(409, "This assessment is closed. Start a new assessment.")
         if row.version != body.expected_version:
@@ -189,15 +206,22 @@ def confirm(identifier: str, body: Confirmation, user: User = Depends(principal)
 @router.get("/me/profile")
 def profile(user: User = Depends(principal)):
     with transaction() as db:
+        assessment = db.scalar(
+            select(Assessment)
+            .where(Assessment.user_id == user.id)
+            .order_by(Assessment.created_at.desc(), Assessment.id.desc())
+            .limit(1)
+        )
+        latest = view(assessment) if assessment else None
         member = db.scalar(select(Member).where(Member.user_id == user.id))
         if not member:
-            return {"member": None, "snapshot": None}
+            return {"member": None, "snapshot": None, "assessment": latest}
         snapshot = db.scalar(
             select(ProfileSnapshot).where(
                 ProfileSnapshot.member_id == member.id, ProfileSnapshot.version == member.profile_version
             )
         )
-        return {"member": view(member), "snapshot": view(snapshot)}
+        return {"member": view(member), "snapshot": view(snapshot), "assessment": latest}
 
 
 @router.get("/me/profile/history")
