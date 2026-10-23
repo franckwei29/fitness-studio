@@ -45,3 +45,5 @@
 .intake-actions { display: flex; flex-wrap: wrap; gap: .75rem; }
 .intake-form input:disabled, .intake-form select:disabled { opacity: 1; color: var(--sage-ink, #526355); background: var(--sage-soft, #f3f4ef); cursor: default; }
 .intake-feedback:empty { display: none; }
+.intake-submission button:not(.primary) { padding: 12px 18px; border: 1px solid var(--sage-line); border-radius: 12px; background: transparent; color: var(--sage-ink); font-weight: 600; }
+.intake-submission button:not(.primary):hover { border-color: var(--sage-accent); }
