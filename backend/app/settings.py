@@ -20,9 +20,9 @@ class Settings(BaseSettings):
     gemini_api_key: SecretStr = SecretStr("")
     gemini_model: str = "gemini-3.5-flash-lite"
     model_calls_enabled: bool = False
-    model_rpm_limit: int = 6
+    model_hourly_call_limit: int = 10
     model_concurrency_limit: int = 1
-    model_daily_call_limit: int = 30
+    model_account_daily_call_limit: int = 100
     owner_email: str = "owner@example.test"
     owner_password: SecretStr
     cookie_secure: bool = False

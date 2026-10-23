@@ -48,8 +48,8 @@ def execute(claim):
             record_failure(claim, "ExecutorUnavailable")
     except BudgetDenied:
         record_failure(claim, "BudgetRequired")
-    except ModelUnavailable:
-        record_failure(claim, "ModelDispatchUnavailable")
+    except ModelUnavailable as exc:
+        record_failure(claim, exc.wait_reason)
     except PolicyDenied:
         record_failure(claim, "PolicyReview")
     except (ProviderFailure, UsageUncertain):

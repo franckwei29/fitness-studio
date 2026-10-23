@@ -27,7 +27,7 @@ from app.settings import get_settings
 from app.worker import run_once
 import app.model_gateway as gateway
 import app.conversation_runtime as runtime
-settings=get_settings().model_copy(update={"model_calls_enabled":True,"gemini_api_key":SecretStr("synthetic-not-sent"),"model_daily_call_limit":100})
+settings=get_settings().model_copy(update={"model_calls_enabled":True,"gemini_api_key":SecretStr("synthetic-not-sent"),"model_account_daily_call_limit":100})
 gateway.get_settings=lambda:settings
 stage=sys.argv[2]
 def transport(*args):

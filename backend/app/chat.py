@@ -42,6 +42,8 @@ def owned(db, model, identifier, user, lock=False):
 WAIT_MESSAGES = {
     "BudgetRequired": "Waiting for model budget to be configured or replenished.",
     "ModelDispatchUnavailable": "Waiting for model access or an available dispatch slot.",
+    "HourlyCallLimit": "The global hourly model-call limit has been reached. Wait for capacity, then ask the owner to request recovery.",
+    "AccountDailyCallLimit": "Your account has reached its daily model-call limit. Wait for capacity, then ask the owner to request recovery.",
     "PolicyReview": "The current permissions or profile need review before continuing.",
     "UsageReconciliation": "A previous model call needs usage reconciliation before continuing.",
     "TechnicalReview": "This request needs a technical review.",

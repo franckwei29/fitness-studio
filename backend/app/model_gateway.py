@@ -20,6 +20,10 @@ from app.work_queue import lock_claim
 class ModelUnavailable(Exception):
     """A fixed status explanation that does not require another model call."""
 
+    def __init__(self, message, wait_reason="ModelDispatchUnavailable"):
+        super().__init__(message)
+        self.wait_reason = wait_reason
+
 
 def generate(claim, instruction, context, output_type, max_output_tokens=2048):
     settings = get_settings()
@@ -72,11 +76,19 @@ def generate(claim, instruction, context, output_type, max_output_tokens=2048):
         permit = gate.acquire(
             call_id,
             DispatchLimits(
-                settings.model_rpm_limit, settings.model_daily_call_limit, settings.model_concurrency_limit
+                settings.model_hourly_call_limit,
+                settings.model_account_daily_call_limit,
+                settings.model_concurrency_limit,
             ),
+            request.user_id,
         )
         if permit != "Granted":
-            raise ModelUnavailable(f"Model dispatch is waiting: {permit}.")
+            raise ModelUnavailable(
+                f"Model dispatch is waiting: {permit}.",
+                {"Hour": "HourlyCallLimit", "AccountDay": "AccountDailyCallLimit"}.get(
+                    permit, "ModelDispatchUnavailable"
+                ),
+            )
         granted = True
         with transaction() as db:
             item, request = lock_claim(db, claim)

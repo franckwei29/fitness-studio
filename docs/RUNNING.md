@@ -15,9 +15,9 @@ OWNER_EMAIL=owner@example.test
 OWNER_PASSWORD=replace-with-a-long-random-password
 GEMINI_API_KEY=
 MODEL_CALLS_ENABLED=false
-MODEL_RPM_LIMIT=6
+MODEL_HOURLY_CALL_LIMIT=10
 MODEL_CONCURRENCY_LIMIT=1
-MODEL_DAILY_CALL_LIMIT=30
+MODEL_ACCOUNT_DAILY_CALL_LIMIT=100
 COOKIE_SECURE=false
 ```
 
@@ -35,7 +35,7 @@ Sign in with the owner credentials from `.env`; members register their own accou
 
 Enabling calls requires a Gemini API key, `MODEL_CALLS_ENABLED=true`, and sufficient configured budgets for every applicable scope: global, role, member, and group. Intake before membership uses global and role scopes. The API key stays on the server. Restart API and worker after changing environment settings.
 
-Normal chat makes one inference request per response. Combined training and nutrition generation normally makes two. Viewing pages, approving saved candidates, and deterministic reminders make no model calls. Rate and daily limits are application-wide; Google account limits may be lower. Unknown provider usage retains its reservation until reconciled, rather than being treated as free.
+Normal chat makes one inference request per response. Combined training and nutrition generation normally makes two. Viewing pages, approving saved candidates, and deterministic reminders make no model calls. The global quota is 10 calls per rolling hour (`MODEL_HOURLY_CALL_LIMIT`); each authenticated account separately has 100 calls per rolling 24 hours (`MODEL_ACCOUNT_DAILY_CALL_LIMIT`). All roles and evaluations share these gates. Concurrency remains separately controlled. Google account limits may be lower. Unknown provider usage retains its reservation until reconciled, rather than being treated as free.
 
 Domain validation failures may queue up to two additional corrective generations shared by the original request. Corrections use the same budget scopes, call ceiling, and deadline. Invalid candidates are retained in history and never activated; exhausting a correction limit stops the request.
 
@@ -101,3 +101,7 @@ The Owner reviews the trace and clicks **Export snapshot to LangSmith**. The API
 The cloud run represents a snapshot observation. Recorded task and model-call times remain in its metadata; the export does not invent execution spans or overwrite historical evidence. Raw graph-state tracing is suppressed inside the application's graph context even if `LANGSMITH_TRACING` is enabled in the surrounding environment.
 
 Implementation references: [LangSmith manual tracing API](https://docs.langchain.com/langsmith/trace-with-api) and [sensitive-data controls](https://docs.langchain.com/langsmith/mask-inputs-outputs). Transport tests use a synthetic remote service; live external ingestion requires configured credentials and is not implied by those tests.
+
+### Upgrade from global daily quotas
+
+Stop the worker before upgrading. After rebuilding the API, run `docker compose -f compose.yaml -f compose.app.yaml exec -T api python -m app.quota_migration`, then restart the worker. This preserves recent legacy calls in per-account buckets; global hourly history also imports the legacy ledger. Do not clear Redis when changing quotas.

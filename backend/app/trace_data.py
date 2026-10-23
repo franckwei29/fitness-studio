@@ -31,6 +31,8 @@ STATUSES = {
 }
 REASONS = {
     "BudgetRequired",
+    "HourlyCallLimit",
+    "AccountDailyCallLimit",
     "ModelDispatchUnavailable",
     "PolicyReview",
     "UsageReconciliation",

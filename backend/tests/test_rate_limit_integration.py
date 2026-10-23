@@ -1,4 +1,4 @@
-"""Rate limits are shared atomically across independent Redis clients."""
+"""Hourly and account quotas are shared atomically across Redis clients."""
 
 from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
@@ -15,53 +15,109 @@ def limiter():
     connection = Redis.from_url(get_settings().redis_url)
     gate = ModelRateLimiter(connection, f"test:model:{uuid4()}")
     yield gate
-    connection.delete(*gate.keys)
+    keys = list(connection.scan_iter(gate.namespace + ":*"))
+    if keys:
+        connection.delete(*keys)
     connection.close()
 
 
 def test_shared_concurrency_limit_and_replay(limiter):
-    limits = DispatchLimits(20, 30, 1)
+    limits = DispatchLimits(20, 100, 1)
     identifiers = [str(uuid4()) for _ in range(8)]
     with ThreadPoolExecutor(max_workers=8) as pool:
-        results = list(pool.map(lambda identifier: limiter.acquire(identifier, limits), identifiers))
+        results = list(pool.map(lambda identifier: limiter.acquire(identifier, limits, "a"), identifiers))
     assert results.count("Granted") == 1
     granted = identifiers[results.index("Granted")]
     assert limiter.active_calls() == [granted]
-    assert limiter.acquire(granted, limits) == "Duplicate"
+    assert limiter.acquire(granted, limits, "a") == "Duplicate"
     limiter.release(granted)
     limiter.release(granted)
     assert limiter.active_calls() == []
-    assert limiter.acquire(granted, limits) == "Duplicate"
-    assert limiter.acquire(str(uuid4()), limits) == "Granted"
+    assert limiter.acquire(granted, limits, "b") == "Duplicate"
+    assert limiter.acquire(str(uuid4()), limits, "b") == "Granted"
 
 
-def test_minute_history_survives_release(limiter):
-    limits = DispatchLimits(2, 10, 1)
-    for _ in range(2):
+def test_global_ten_per_rolling_hour_across_accounts(limiter):
+    limits = DispatchLimits(10, 100, 1)
+    for index in range(10):
         identifier = str(uuid4())
-        assert limiter.acquire(identifier, limits) == "Granted"
+        assert limiter.acquire(identifier, limits, "a" if index % 2 else "b") == "Granted"
         limiter.release(identifier)
-    assert limiter.acquire(str(uuid4()), limits) == "Minute"
+    assert limiter.acquire(str(uuid4()), limits, "c") == "Hour"
+    stamp = limiter.redis.time()
+    old = (stamp[0] * 1000 + stamp[1] // 1000) - 3600001
+    for key in limiter.keys[:2]:
+        for identifier in limiter.redis.zrange(key, 0, -1):
+            limiter.redis.zadd(key, {identifier: old})
+    assert limiter.acquire(str(uuid4()), limits, "c") == "Granted"
 
 
-def test_daily_history_is_independent_of_minute_window(limiter):
-    limits = DispatchLimits(5, 2, 1)
-    for _ in range(2):
+def test_account_day_is_independent_and_hour_expiry_does_not_reset_it(limiter):
+    limits = DispatchLimits(1000, 100, 1)
+    for _ in range(100):
         identifier = str(uuid4())
-        assert limiter.acquire(identifier, limits) == "Granted"
+        assert limiter.acquire(identifier, limits, "a") == "Granted"
         limiter.release(identifier)
     limiter.redis.delete(limiter.keys[0])
-    assert limiter.acquire(str(uuid4()), limits) == "Day"
+    assert limiter.acquire(str(uuid4()), limits, "a") == "AccountDay"
+    other = str(uuid4())
+    assert limiter.acquire(other, limits, "b") == "Granted"
+    limiter.release(other)
+    stamp = limiter.redis.time()
+    old = (stamp[0] * 1000 + stamp[1] // 1000) - 86400001
+    for identifier in limiter.redis.zrange(limiter.account_key("a"), 0, -1):
+        limiter.redis.zadd(limiter.account_key("a"), {identifier: old})
+    assert limiter.acquire(str(uuid4()), limits, "a") == "Granted"
 
 
-def test_active_slot_survives_client_recreation(limiter):
+def test_concurrent_account_limit_does_not_overshoot(limiter):
+    limits = DispatchLimits(1000, 100, 200)
+
+    def attempt(_):
+        identifier = str(uuid4())
+        result = limiter.acquire(identifier, limits, "a")
+        if result == "Granted":
+            limiter.release(identifier)
+        return result
+
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        results = list(pool.map(attempt, range(120)))
+    assert results.count("Granted") == 100 and results.count("AccountDay") == 20
+
+
+def test_legacy_history_and_active_slots_survive_recreation(limiter):
+    stamp = limiter.redis.time()
+    score = stamp[0] * 1000 + stamp[1] // 1000
+    limiter.redis.zadd(limiter.keys[1], {"legacy": score})
+    assert limiter.acquire("legacy", DispatchLimits(10, 100, 1), "a") == "Duplicate"
+    assert limiter.acquire("new", DispatchLimits(1, 100, 1), "a") == "Hour"
     identifier = str(uuid4())
-    limits = DispatchLimits(5, 10, 1)
-    assert limiter.acquire(identifier, limits) == "Granted"
+    limits = DispatchLimits(10, 100, 1)
+    assert limiter.acquire(identifier, limits, "a") == "Granted"
     connection = Redis.from_url(get_settings().redis_url)
     try:
-        replacement = ModelRateLimiter(connection, limiter.keys[0].removesuffix(":minute"))
+        replacement = ModelRateLimiter(connection, limiter.namespace)
         assert replacement.active_calls() == [identifier]
-        assert replacement.acquire(str(uuid4()), limits) == "Concurrency"
+        assert replacement.acquire(str(uuid4()), limits, "b") == "Concurrency"
     finally:
         connection.close()
+
+
+def test_upgrade_preserves_account_history_idempotently(limiter):
+    from types import SimpleNamespace
+
+    from app.quota_migration import seed_account_history
+
+    stamp = limiter.redis.time()
+    score = stamp[0] * 1000 + stamp[1] // 1000
+    limiter.redis.zadd(limiter.keys[1], {"old-a": score, "old-b": score, "expired": score - 86400001})
+
+    class Database:
+        def get(self, model, identifier):
+            return SimpleNamespace(user_id="a" if identifier == "old-a" else "b")
+
+    assert seed_account_history(Database(), limiter) == 2
+    assert seed_account_history(Database(), limiter) == 2
+    assert limiter.redis.zcard(limiter.account_key("a")) == 1
+    assert limiter.redis.zcard(limiter.account_key("b")) == 1
+    assert limiter.acquire("new-a", DispatchLimits(10, 1, 1), "a") == "AccountDay"
