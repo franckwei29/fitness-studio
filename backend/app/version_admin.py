@@ -7,11 +7,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 
-from app.admission import fingerprint, view
+from app.admission import view
+from app.agent_versions import version_fingerprint
 from app.database import transaction
 from app.evaluation_records import prepare_evaluation, verify_evaluation_snapshot
 from app.evaluation_review import verified_evidence
 from app.evaluation_suite import SUITE_VERSION, evaluation_cases
+from app.model_catalog import catalog, model_info, validate_options
 from app.models import (
     AgentVersion,
     AuditEvent,
@@ -37,6 +39,9 @@ class Candidate(BaseModel):
     role: Literal["Intake", "Coach", "Nutrition", "TechnicalManager"]
     label: str = Field(min_length=1, max_length=80)
     model: str = Field(min_length=1, max_length=100)
+    provider: Literal["openai", "gemini"] | None = None
+    max_output_tokens: int = Field(default=2048, ge=64, le=4096, strict=True)
+    reasoning_effort: Literal["none", "low", "medium", "high"] | None = None
     instructions: str = Field(min_length=1, max_length=12000)
 
     @field_validator("label", "model", "instructions")
@@ -67,7 +72,9 @@ def versions(user: User = Depends(owner)):
         groups = list(db.scalars(select(MemberGroup)))
         rows = list(db.scalars(select(AgentVersion).order_by(AgentVersion.created_at.desc()).limit(200)))
         return {
-            "default_model": get_settings().gemini_model,
+            "default_model": get_settings().default_model,
+            "default_provider": get_settings().model_provider,
+            "models": catalog(get_settings()),
             "versions": [
                 view(row)
                 | {
@@ -102,12 +109,13 @@ def version_detail(identifier: str, user: User = Depends(owner)):
 def create_candidate(body: Candidate, user: User = Depends(owner)):
     try:
         price_for(body.model)
-    except UsageUncertain:
+        validate_options(body.model, body.provider, body.max_output_tokens, body.reasoning_effort)
+    except (UsageUncertain, ValueError):
         raise HTTPException(
             422, "This model has no supported pricing and accounting configuration."
         ) from None
     prompt = base_instruction(body.role) + "\n\nCandidate-specific instructions:\n" + body.instructions
-    digest = fingerprint({"role": body.role, "model": body.model, "prompt": prompt})
+    digest = version_fingerprint(body.role, body.model, prompt, body.max_output_tokens, body.reasoning_effort)
     with transaction() as db:
         # Serialize candidate creation across owner sessions without a new lock service.
         db.scalar(select(User).where(User.id == user.id).with_for_update())
@@ -115,7 +123,14 @@ def create_candidate(body: Candidate, user: User = Depends(owner)):
         if existing:
             return view(existing)
         row = AgentVersion(
-            role=body.role, label=body.label, model=body.model, prompt=prompt, fingerprint=digest
+            role=body.role,
+            label=body.label,
+            model=body.model,
+            prompt=prompt,
+            fingerprint=digest,
+            provider=model_info(body.model)["provider"],
+            max_output_tokens=body.max_output_tokens,
+            reasoning_effort=body.reasoning_effort,
         )
         db.add(row)
         db.flush()

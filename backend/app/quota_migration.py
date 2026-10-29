@@ -23,6 +23,12 @@ def seed_account_history(db, gate):
             key = gate.account_key(call.user_id)
             pipeline.zadd(key, {identifier: score}, nx=True)
             pipeline.pexpire(key, 86400001)
+            model = getattr(call, "model", get_settings().gemini_model)
+            provider = getattr(call, "provider", "gemini")
+            hourly = gate.model_key(provider, model)
+            if score > cutoff + 82800000:
+                pipeline.zadd(hourly, {identifier: score}, nx=True)
+                pipeline.pexpire(hourly, 3600001)
             seeded += 1
         pipeline.execute()
     return seeded

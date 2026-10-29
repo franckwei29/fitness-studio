@@ -10,7 +10,16 @@ class BudgetDenied(Exception):
     """A request cannot acquire the required allowance."""
 
 
-def reserve(request_id, role, model, amount_micros, price_version, scope_keys, request_fingerprint=None):
+def reserve(
+    request_id,
+    role,
+    model,
+    amount_micros,
+    price_version,
+    scope_keys,
+    request_fingerprint=None,
+    provider="gemini",
+):
     if not isinstance(amount_micros, int) or amount_micros <= 0:
         raise ValueError("A positive integer reservation is required.")
     scopes = sorted(set(scope_keys) | {"global"})
@@ -37,6 +46,7 @@ def reserve(request_id, role, model, amount_micros, price_version, scope_keys, r
             user_id=request.user_id,
             role=role,
             model=model,
+            provider=provider,
             reserved_micros=amount_micros,
             price_version=price_version,
             request_fingerprint=request_fingerprint,

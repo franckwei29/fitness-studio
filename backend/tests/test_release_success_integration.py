@@ -12,7 +12,7 @@ from test_admission_integration import owner_client as owner_fixture
 from app.admission import fingerprint
 from app.agent_contracts import ChatReply
 from app.database import transaction
-from app.gemini import build_payload
+from app.model_payload import build_payload
 from app.models import AgentVersion, ModelCall, Request
 from app.pricing import price_for
 from app.settings import get_settings
@@ -53,7 +53,14 @@ def test_successful_review_and_canary_execution(monkeypatch, owner_client):
                 request_fingerprint=fingerprint(
                     {
                         "work_id": claim.work_id,
-                        "payload": build_payload(model, instruction, context, output_type, max_output_tokens),
+                        "payload": build_payload(
+                            model,
+                            instruction,
+                            context,
+                            output_type,
+                            max_output_tokens,
+                            version=db.get(AgentVersion, context["agent_version_id"]),
+                        ),
                     }
                 ),
             )

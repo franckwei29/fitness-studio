@@ -1,0 +1,32 @@
+import {test,expect} from '@playwright/test';
+for(const width of [390,1440])test(`provider configuration and model usage at ${width}px`,async({page})=>{
+ await page.setViewportSize({width,height:950});let saved:any=null;
+ const models=[{id:'gpt-6-luna',provider:'openai',label:'GPT-6 Luna',configured:true,reasoning:['none','low','medium','high'],input_per_million:'0.10',output_per_million:'0.50'},{id:'gemini-3.5-flash-lite',provider:'gemini',label:'Gemini Flash Lite',configured:false,reasoning:[],input_per_million:'0.30',output_per_million:'2.50'}];
+ await page.route('**/api/**',async route=>{const path=new URL(route.request().url()).pathname;let data:any;
+ if(path==='/api/auth/me')data={user:{id:'o',display_name:'Owner',role:'Owner'},csrf_token:'x'};
+ else if(path==='/api/conversations'||path==='/api/notifications')data=[];
+ else if(path==='/api/owner/agent-versions'){if(route.request().method()==='POST'){saved=route.request().postDataJSON();data={id:'v',...saved,prompt:'English output.',configured_groups:[]};}else data={default_model:'gpt-6-luna',default_provider:'openai',models,versions:[]};}
+ else if(path==='/api/owner/budgets')data=[];
+ else if(path==='/api/owner/unknown-usage')data=[];
+ else if(path==='/api/me/usage')data={default_model:'gpt-6-luna',model_usage:models.map((row,i)=>({...row,used:i?8:36,limit:100,next_capacity_at:null}))};
+ else if(path==='/api/owner/agent-versions/v')data={id:'v',...saved,prompt:'English output.',configured_groups:[]};
+ else if(path==='/api/owner/agent-versions/v/evaluations')data={suite_version:'test',cases:[],runs:[]};
+ else if(path==='/api/owner/groups')data=[];
+ else if(path==='/api/owner/agent-releases')data=[];
+ else throw new Error(path);
+ await route.fulfill({json:data});});
+ await page.goto('/#/owner/versions');
+ await expect(page.getByRole('heading',{name:'Agent versions'})).toBeVisible();
+ await expect(page.getByLabel('Model',{exact:true})).toHaveValue('gpt-6-luna');
+ await page.getByLabel('Provider',{exact:true}).selectOption('gemini');
+ await expect(page.getByLabel('Model',{exact:true})).toHaveValue('gemini-3.5-flash-lite');
+ await expect(page.getByLabel('Reasoning effort')).toHaveCount(0);
+ await page.getByLabel('Provider',{exact:true}).selectOption('openai');
+ await page.getByLabel('Version label').fill('Luna candidate');await page.getByLabel('Additional instructions').fill('Explain clearly.');
+ await page.getByLabel('Response limit (tokens)').fill('1024');await page.getByLabel('Reasoning effort').selectOption('none');
+ await page.getByRole('button',{name:'Save candidate'}).click();
+ await expect.poll(()=>saved).toMatchObject({provider:'openai',model:'gpt-6-luna',max_output_tokens:1024,reasoning_effort:'none'});
+ await page.goto('/#/owner/budgets');
+ await expect(page.getByText('36 / 100')).toBeVisible();await expect(page.getByText('8 / 100')).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});

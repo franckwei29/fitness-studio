@@ -44,6 +44,8 @@ def main():
         ).render_as_string(hide_password=False),
         "REDIS_URL": "redis://127.0.0.1:36380/0",
         "GEMINI_API_KEY": "",
+        "OPENAI_API_KEY": "",
+        "MODEL_PROVIDER": "gemini",
         "MODEL_CALLS_ENABLED": "false",
         "OWNER_EMAIL": "test-owner@example.test",
         "OWNER_PASSWORD": "Isolated-regression-test-123!",

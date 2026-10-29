@@ -196,7 +196,7 @@ def test_usage_counts_rolling_account_calls_without_other_accounts(member):
         response = member.get("/api/me/usage")
         assert response.status_code == 200, response.text
         body = response.json()
-        assert body["account_used"] == 1 and body["account_limit"] == 100
+        assert body["account_used"] == 1 and body["account_limit"] == 200
         assert body["account_window_seconds"] == 86400
         assert "global_budget" not in body and "user_id" not in body
         assert r.zcard(key) == 2  # Observation does not mutate history.

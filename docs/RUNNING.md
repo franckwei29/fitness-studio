@@ -13,6 +13,9 @@ DATABASE_URL=mysql+pymysql://studio:replace-with-a-random-url-safe-password@127.
 SESSION_SECRET=replace-with-a-long-random-secret
 OWNER_EMAIL=owner@example.test
 OWNER_PASSWORD=replace-with-a-long-random-password
+MODEL_PROVIDER=openai
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-6-luna
 GEMINI_API_KEY=
 MODEL_CALLS_ENABLED=false
 MODEL_HOURLY_CALL_LIMIT=10
@@ -33,9 +36,9 @@ Sign in with the owner credentials from `.env`; members register their own accou
 
 ## Model calls
 
-Enabling calls requires a Gemini API key, `MODEL_CALLS_ENABLED=true`, and sufficient configured budgets for every applicable scope: global, role, member, and group. Intake before membership uses global and role scopes. The API key stays on the server. Restart API and worker after changing environment settings.
+Enabling calls requires the selected provider’s API key, `MODEL_CALLS_ENABLED=true`, and sufficient configured budgets for every applicable scope: global, role, member, and group. Intake before membership uses global and role scopes. The API key stays on the server. Restart API and worker after changing environment settings.
 
-Normal chat makes one inference request per response. Combined training and nutrition generation normally makes two. Viewing pages, approving saved candidates, and deterministic reminders make no model calls. The global quota is 10 calls per rolling hour (`MODEL_HOURLY_CALL_LIMIT`); each authenticated account separately has 100 calls per rolling 24 hours (`MODEL_ACCOUNT_DAILY_CALL_LIMIT`). All roles and evaluations share these gates. Concurrency remains separately controlled. Google account limits may be lower. Unknown provider usage retains its reservation until reconciled, rather than being treated as free.
+Normal chat makes one inference request per response. Combined training and nutrition generation normally makes two. Viewing pages, approving saved candidates, and deterministic reminders make no model calls. The per-provider/model quota is 100 calls per rolling hour (`MODEL_HOURLY_CALL_LIMIT`); each authenticated account separately has 200 calls per rolling 24 hours (`MODEL_ACCOUNT_DAILY_CALL_LIMIT`). All roles and evaluations share these gates. Concurrency remains separately controlled. Provider account limits may be lower. Unknown provider usage retains its reservation until reconciled, rather than being treated as free.
 
 Domain validation failures may queue up to two additional corrective generations shared by the original request. Corrections use the same budget scopes, call ceiling, and deadline. Invalid candidates are retained in history and never activated; exhausting a correction limit stops the request.
 
@@ -79,7 +82,7 @@ Use the installed application virtual environment from the application root:
 .venv/bin/python scripts/test_backend.py
 ```
 
-Docker must be on `PATH`. This command starts the dedicated `fitness-studio-test` Compose project with MySQL on port 33317 and Redis on port 36380, applies migrations, bootstraps a test owner, and runs pytest. It explicitly disables Gemini and removes the API key from the test process environment. The test database and volumes are separate from the normal application services. Optional pytest arguments follow the script name.
+Docker must be on `PATH`. This command starts the dedicated `fitness-studio-test` Compose project with MySQL on port 33317 and Redis on port 36380, applies migrations, bootstraps a test owner, and runs pytest. It explicitly disables both providers and removes both API keys from the test process environment. The test database and volumes are separate from the normal application services. Optional pytest arguments follow the script name.
 
 The test services persist for subsequent runs. Stop them without removing their volumes with:
 
@@ -94,7 +97,7 @@ For an independent acceptance environment, use a different Compose project name 
 
 Studio overview lets an Owner inspect and download a redacted operational snapshot without any external service. The snapshot retains request/task references, fixed status codes, approved version references, numeric token usage and ledger costs. It excludes personal profile data, conversation text, prompts, model output, credentials, provider response identifiers and arbitrary diagnostic text. Unknown cost remains unknown.
 
-To enable explicit LangSmith exports, set `STUDIO_LANGSMITH_EXPORT_ENABLED=true`, provide `STUDIO_LANGSMITH_API_KEY` in the private environment, and choose `STUDIO_LANGSMITH_PROJECT`. `STUDIO_LANGSMITH_ENDPOINT` supports the documented US, EU, APAC and AWS hosted endpoints. Keys tied to multiple workspaces may also need `STUDIO_LANGSMITH_WORKSPACE_ID`. Restart the API after configuration. These credentials are separate from Gemini credentials.
+To enable explicit LangSmith exports, set `STUDIO_LANGSMITH_EXPORT_ENABLED=true`, provide `STUDIO_LANGSMITH_API_KEY` in the private environment, and choose `STUDIO_LANGSMITH_PROJECT`. `STUDIO_LANGSMITH_ENDPOINT` supports the documented US, EU, APAC and AWS hosted endpoints. Keys tied to multiple workspaces may also need `STUDIO_LANGSMITH_WORKSPACE_ID`. Restart the API after configuration. These credentials are separate from model provider credentials.
 
 The Owner reviews the trace and clicks **Export snapshot to LangSmith**. The API rechecks its fingerprint, records dispatch before sending, and makes one bounded request. Repeating the same export returns its stored receipt. `Accepted` means the service acknowledged ingestion; `Unknown` or a crash-left `Pending` receipt requires checking the recorded run ID in LangSmith rather than automatically resending. A rejected or unavailable export leaves the local trace, application workflow and model ledger intact. No export is sent automatically by the worker.
 
@@ -105,3 +108,5 @@ Implementation references: [LangSmith manual tracing API](https://docs.langchain
 ### Upgrade from global daily quotas
 
 Stop the worker before upgrading. After rebuilding the API, run `docker compose -f compose.yaml -f compose.app.yaml exec -T api python -m app.quota_migration`, then restart the worker. This preserves recent legacy calls in per-account buckets; global hourly history also imports the legacy ledger. Do not clear Redis when changing quotas.
+
+See [Model providers](MODEL_PROVIDERS.md) for provider selection, immutable generation settings, and the migration procedure.

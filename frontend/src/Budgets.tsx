@@ -2,6 +2,7 @@ import type { OwnerTarget } from './ownerNavigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api } from './api';
 import { UnknownUsage } from './UnknownUsage';
+import { ModelUsage } from './ModelUsage';
 type Budget = { id: string; scope_key: string; limit_micros: number; spent_micros: number; reserved_micros: number; fingerprint: string };
 export function Budgets({ targetId, targetSection, onChanged }: { targetId?: string; targetSection?: string; onChanged?: (target?: OwnerTarget) => void }) {
   const [rows, setRows] = useState<Budget[]>([]), [scope, setScope] = useState('global'), [amount, setAmount] = useState('0');
@@ -19,6 +20,7 @@ export function Budgets({ targetId, targetSection, onChanged }: { targetId?: str
     catch (e) { setError((e as Error).message); } finally { setBusy(false); submitting.current = false; }
   }
   return <section className="intake-page"><span className="eyebrow">MODEL SPENDING CONTROLS</span><h1>Budget limits</h1><p className="muted">Limits are cumulative account allowances in USD. Reserved funds remain held until usage is reconciled. All applicable accounts must have enough available allowance before a model call.</p>
+    {!targetId && <ModelUsage/>}
     {error && <p role="alert" className="error">{error}</p>}{notice && <p role="status" className="assessment-status">{notice}</p>}
     {loading ? <p role="status">Loading budget details…</p> : missing ? <p role="alert" className="error">This budget account is unavailable. No other account has been selected.</p> : !unknownOnly && <>
       <form className="intake-form plan-card" onSubmit={submit}><label>Budget scope<input list="budget-scopes" value={scope} onChange={e => choose(e.target.value)} required /><datalist id="budget-scopes">{Array.from(new Set(['global', 'role:Intake', 'role:Coach', 'role:Nutrition', 'role:TechnicalManager', ...rows.map(row => row.scope_key)])).map(value => <option key={value} value={value} />)}</datalist></label><p className="muted">Use global, role:RoleName, group:GroupID, or member:MemberID.</p><label>Total limit (USD)<input type="number" min="0" max="1000" step="0.000001" required value={amount} onChange={e => setAmount(e.target.value)} /></label><label>Reason<input required maxLength={1000} value={reason} onChange={e => setReason(e.target.value)} /></label><button className="primary" disabled={busy}>{busy ? 'Saving limit…' : 'Save budget limit'}</button></form>

@@ -82,7 +82,7 @@ SUMMARIES = {
     "dashboard": "Review studio activity or open an exact request for its redacted operational evidence.",
     "requests": "These are your own activities. Member confirmations cannot be completed by the owner.",
     "notifications": "Your updates link to the corresponding workspace. Owner reviews are in the attention inbox.",
-    "usage": "The shared hourly and account rolling 24-hour allowances are separate from monetary budgets. Reserved funds remain held when usage is uncertain.",
+    "usage": "The per-model hourly and account rolling 24-hour allowances are separate from monetary budgets. Reserved funds remain held when usage is uncertain.",
 }
 
 

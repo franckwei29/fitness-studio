@@ -8,8 +8,11 @@ from app.agent_contracts import CHAT_TASK_INSTRUCTION
 from app.agent_versions import verify_version
 from app.budget import cancel_undispatched, mark_dispatching, mark_unknown, reserve, settle
 from app.database import transaction
-from app.gemini import GeminiTransport, ProviderFailure, build_payload
+from app.gemini import GeminiTransport, ProviderFailure
+from app.model_catalog import model_info
+from app.model_payload import build_payload
 from app.models import AgentVersion, AuditEvent, ModelCall
+from app.openai_provider import OpenAITransport
 from app.policy import PolicyDenied, execution_context
 from app.pricing import UsageUncertain, price_for
 from app.rate_limit import DispatchLimits, ModelRateLimiter
@@ -29,9 +32,8 @@ def generate(claim, instruction, context, output_type, max_output_tokens=2048):
     settings = get_settings()
     if not settings.model_calls_enabled:
         raise ModelUnavailable("Model calls are disabled.")
-    if not settings.gemini_api_key.get_secret_value():
-        raise ModelUnavailable("Gemini credentials are not configured.")
-    model = settings.gemini_model
+    model = settings.default_model
+    version = None
     with transaction() as db:
         item, request = lock_claim(db, claim)
         authorized = execution_context(db, item, request)
@@ -48,7 +50,8 @@ def generate(claim, instruction, context, output_type, max_output_tokens=2048):
         if request.kind == "Chat" and item.role in {"Coach", "Nutrition"}:
             instruction += CHAT_TASK_INSTRUCTION
         price = price_for(model)
-        payload = build_payload(model, instruction, context, output_type, max_output_tokens)
+        provider = model_info(model)["provider"]
+        payload = build_payload(model, instruction, context, output_type, max_output_tokens, version=version)
         digest = fingerprint({"work_id": claim.work_id, "payload": payload})
         previous = db.scalar(
             select(ModelCall)
@@ -63,14 +66,18 @@ def generate(claim, instruction, context, output_type, max_output_tokens=2048):
         )
         if previous and previous.output is not None:
             return output_type.model_validate(previous.output), previous.id
+    if not settings.credentials(provider).get_secret_value():
+        raise ModelUnavailable(f"{provider.title()} credentials are not configured.")
+    reservation_micros = price.reservation_for(payload)
     call_id = reserve(
         claim.request_id,
         claim.role,
         model,
-        price.reservation(),
+        reservation_micros,
         price.version,
         authorized["scope_keys"],
         request_fingerprint=digest,
+        provider=provider,
     )
     connection = Redis.from_url(settings.redis_url)
     gate = ModelRateLimiter(connection)
@@ -85,6 +92,8 @@ def generate(claim, instruction, context, output_type, max_output_tokens=2048):
                 settings.model_concurrency_limit,
             ),
             request.user_id,
+            provider=provider,
+            model=model,
         )
         if permit != "Granted":
             raise ModelUnavailable(
@@ -101,8 +110,11 @@ def generate(claim, instruction, context, output_type, max_output_tokens=2048):
             raise ModelUnavailable("This model call has already been dispatched.")
         dispatched = True
         try:
-            result = GeminiTransport(settings.gemini_api_key).send(payload, output_type)
+            transport = OpenAITransport if provider == "openai" else GeminiTransport
+            result = transport(settings.credentials(provider)).send(payload, output_type)
             actual = price.actual(result.usage)
+            if actual > reservation_micros:
+                raise UsageUncertain("Reported usage exceeds the request reservation bound.")
         except (ProviderFailure, UsageUncertain) as exc:
             with transaction() as db:
                 db.add(
@@ -129,7 +141,7 @@ def generate(claim, instruction, context, output_type, max_output_tokens=2048):
         if not dispatched:
             cancel_undispatched(call_id)
             if granted:
-                gate.release(call_id)
+                gate.cancel_undispatched(call_id, request.user_id, provider=provider, model=model)
         raise
     finally:
         connection.close()

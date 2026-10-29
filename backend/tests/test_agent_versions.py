@@ -39,8 +39,8 @@ def test_configured_version_is_pinned_and_cannot_silently_change():
         def get(self, model, identifier):
             if model is MemberGroup:
                 return group
-            assert model is AgentVersion and identifier == row.id
-            return row
+            assert model is AgentVersion
+            return row if identifier == row.id else None
 
     item = SimpleNamespace(role="Coach", input_versions={"profile": 2})
     assert resolve_version(Database(), item, {"group_id": "group"}, "Unused default") is row

@@ -5,7 +5,8 @@ from sqlalchemy import select
 from app.admission import fingerprint
 from app.evaluation_records import verify_evaluation_snapshot
 from app.evaluation_suite import output_contract, score_case
-from app.gemini import build_payload
+from app.model_catalog import model_info
+from app.model_payload import build_payload
 from app.models import EvaluationResult, ModelCall, Request, WorkItem
 from app.policy import PolicyDenied
 from app.pricing import price_for
@@ -47,12 +48,13 @@ def verified_evidence(db, run):
             raise PolicyDenied("Evaluation task provenance is incomplete or inconsistent.")
         price = price_for(version.model)
         context = case["input"] | {"agent_version_id": version.id}
-        payload = build_payload(version.model, version.prompt, context, output_contract(run.role), 4096)
+        payload = build_payload(version.model, version.prompt, context, output_contract(run.role), 4096, version=version)
         digest = fingerprint({"work_id": item.id, "payload": payload})
         checks = score_case(run.role, case, row.output)
         if (
             call.status != "Settled"
             or call.model != version.model
+            or getattr(call, "provider", "gemini") != model_info(version.model)["provider"]
             or call.price_version != price.version
             or call.request_fingerprint != digest
             or call.output != row.output

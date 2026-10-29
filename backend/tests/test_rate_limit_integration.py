@@ -121,3 +121,28 @@ def test_upgrade_preserves_account_history_idempotently(limiter):
     assert limiter.redis.zcard(limiter.account_key("a")) == 1
     assert limiter.redis.zcard(limiter.account_key("b")) == 1
     assert limiter.acquire("new-a", DispatchLimits(10, 1, 1), "a") == "AccountDay"
+
+
+def test_models_have_independent_hundred_call_hour_but_share_account_day(limiter):
+    limits = DispatchLimits(100, 200, 1)
+    for model in ("gpt-6-luna", "gemini-3.5-flash-lite"):
+        provider = "openai" if model.startswith("gpt") else "gemini"
+        for _ in range(100):
+            identifier = str(uuid4())
+            assert limiter.acquire(identifier, limits, "a", provider=provider, model=model) == "Granted"
+            limiter.release(identifier)
+        assert limiter.acquire(str(uuid4()), limits, "b", provider=provider, model=model) == "Hour"
+    # Hour expiry must not reset the shared account ledger.
+    limiter.redis.delete(limiter.model_key("openai", "gpt-6-luna"))
+    assert limiter.acquire(str(uuid4()), limits, "a", provider="openai", model="gpt-6-luna") == "AccountDay"
+    assert limiter.acquire(str(uuid4()), limits, "b", provider="openai", model="gpt-6-luna") == "Granted"
+
+
+def test_proven_undispatched_calls_return_call_quota(limiter):
+    limits = DispatchLimits(1, 1, 1)
+    options = {"provider": "openai", "model": "gpt-6-luna"}
+    assert limiter.acquire("never-sent", limits, "a", **options) == "Granted"
+    limiter.cancel_undispatched("never-sent", "a", **options)
+    assert limiter.acquire("replacement", limits, "a", **options) == "Granted"
+    limiter.release("replacement")
+    assert limiter.acquire("third", limits, "a", **options) == "Hour"

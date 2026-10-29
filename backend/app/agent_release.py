@@ -142,7 +142,7 @@ def propose_release(body: ReleaseProposal, user: User = Depends(owner)):
             raise HTTPException(409, "The evaluated baseline is not the group current version.")
         if not configured and (
             baseline_version.prompt != base_instruction(run.role)
-            or baseline_version.model != get_settings().gemini_model
+            or baseline_version.model != get_settings().default_model
         ):
             raise HTTPException(
                 409, "The comparison must use the current default runtime version as baseline."

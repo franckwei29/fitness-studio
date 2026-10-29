@@ -268,44 +268,73 @@ def summary(user: User = Depends(principal)):
 
 @router.get("/usage")
 def usage(user: User = Depends(principal)):
+    from app.model_catalog import catalog, model_info
+    from app.models import AgentVersion
+    from app.pricing import price_for
+
     settings = get_settings()
     connection = Redis.from_url(settings.redis_url, socket_connect_timeout=2, socket_timeout=2)
     try:
         gate = ModelRateLimiter(connection)
         seconds, micros = connection.time()
         stamp = seconds * 1000 + micros // 1000
-        # Read the legacy ledger too: historical dispatches must remain visible.
         day = connection.zrangebyscore(
             gate.account_key(user.id), stamp - 86400000 + 1, "+inf", withscores=True
         )
-        hour = connection.zcount(gate.keys[0], stamp - 3600000 + 1, "+inf")
-        legacy_hour = connection.zcount(gate.keys[1], stamp - 3600000 + 1, "+inf")
-        active = connection.scard(gate.keys[2])
-        status, reason = "Available", None
-        if not settings.model_calls_enabled or not settings.gemini_api_key.get_secret_value():
-            status, reason = (
-                "Unavailable",
-                "AI assistance is currently disabled. Your saved plans remain available.",
-            )
-        elif len(day) >= settings.model_account_daily_call_limit:
-            status, reason = "Unavailable", "Your rolling 24-hour allowance is full."
-        elif max(hour, legacy_hour) >= settings.model_hourly_call_limit:
-            status, reason = "Unavailable", "The studio's shared hourly allowance is full."
-        elif active >= settings.model_concurrency_limit:
-            status, reason = "Busy", "AI assistance is busy. An interrupted response may need studio review."
         with transaction() as db:
             member = db.scalar(select(Member).where(Member.user_id == user.id))
+            group = db.get(MemberGroup, member.group_id) if member else None
+            selected = {settings.default_model}
+            for version_id in group.configuration.get("agent_versions", {}).values() if group else []:
+                version = db.get(AgentVersion, version_id)
+                if version:
+                    selected.add(version.model)
+            model_usage = []
+            for info in catalog(settings):
+                scores = connection.zrangebyscore(
+                    gate.model_key(info["provider"], info["id"]), stamp - 3600000 + 1, "+inf", withscores=True
+                )
+                used = len(scores)
+                release_index = max(0, used - settings.model_hourly_call_limit)
+                next_at = (
+                    datetime.fromtimestamp((scores[release_index][1] + 3600000) / 1000, UTC).isoformat()
+                    if scores
+                    else None
+                )
+                model_usage.append(
+                    info
+                    | {"used": used, "limit": settings.model_hourly_call_limit, "next_capacity_at": next_at}
+                )
+            relevant = [row for row in model_usage if row["id"] in selected]
+            status, reason = "Available", None
+            if not settings.model_calls_enabled or not any(row["configured"] for row in relevant):
+                status, reason = (
+                    "Unavailable",
+                    "AI assistance is currently unavailable. Your saved plans remain available.",
+                )
+            elif len(day) >= settings.model_account_daily_call_limit:
+                status, reason = "Unavailable", "Your rolling 24-hour allowance is full."
+            elif relevant and all(not row["configured"] or row["used"] >= row["limit"] for row in relevant):
+                status, reason = (
+                    "Unavailable",
+                    "The hourly AI allowance is full. Please try again when capacity returns.",
+                )
+            elif connection.scard(gate.keys[2]) >= settings.model_concurrency_limit:
+                status, reason = "Busy", "AI assistance is busy. Please try again shortly."
             scopes = ["global"] + ([f"group:{member.group_id}", f"member:{member.id}"] if member else [])
             accounts = list(db.scalars(select(BudgetAccount).where(BudgetAccount.scope_key.in_(scopes))))
-            from app.pricing import price_for
-
-            reservation = price_for(settings.gemini_model).reservation()
+            reservation = min(price_for(model).cost(8192, 2048) for model in selected)
             if len(accounts) < len(scopes) or any(
                 a.limit_micros - a.reserved_micros - a.spent_micros < reservation for a in accounts
             ):
                 status, reason = "Paused", "The studio needs to review the available AI budget."
-        next_at = datetime.fromtimestamp((day[0][1] + 86400000) / 1000, UTC).isoformat() if day else None
-        return {
+        release_index = max(0, len(day) - settings.model_account_daily_call_limit)
+        next_at = (
+            datetime.fromtimestamp((day[release_index][1] + 86400000) / 1000, UTC).isoformat()
+            if day
+            else None
+        )
+        result = {
             "account_used": len(day),
             "account_limit": settings.model_account_daily_call_limit,
             "account_window_seconds": 86400,
@@ -315,6 +344,11 @@ def usage(user: User = Depends(principal)):
             "blocking_reason": reason,
             "observed_at": datetime.fromtimestamp(seconds, UTC).isoformat(),
         }
+        if user.role == "Owner":
+            result["model_usage"] = model_usage
+            result["default_provider"] = model_info(settings.default_model)["provider"]
+            result["default_model"] = settings.default_model
+        return result
     except RedisError:
         raise HTTPException(
             503, "Usage is temporarily unavailable. Your saved plans are still accessible."

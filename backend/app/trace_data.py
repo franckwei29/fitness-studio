@@ -9,7 +9,7 @@ from sqlalchemy import select
 from app.admission import fingerprint
 from app.database import transaction
 from app.models import AuditEvent, ModelCall, Request, RequestEvent, WorkItem
-from app.pricing import FLASH_LITE
+from app.pricing import FLASH_LITE, LUNA
 
 ROLES = {"Intake", "Coach", "Nutrition", "TechnicalManager"}
 STATUSES = {
@@ -213,13 +213,13 @@ def request_trace(identifier):
                 "calls": [
                     {
                         "id": row.id,
-                        "model": row.model if row.model == FLASH_LITE.model else "Unrecognized",
+                        "model": row.model if row.model in {FLASH_LITE.model, LUNA.model} else "Unrecognized",
                         "role": code(row.role, ROLES),
                         "status": code(row.status, STATUSES),
                         "reserved_micros": row.reserved_micros,
                         "actual_micros": row.actual_micros,
                         "price_version": row.price_version
-                        if row.price_version == FLASH_LITE.version
+                        if row.price_version in {FLASH_LITE.version, LUNA.version}
                         else "Unverified",
                         "usage": {
                             k: v for k, v in row.usage.items() if k in TOKENS and type(v) is int and v >= 0

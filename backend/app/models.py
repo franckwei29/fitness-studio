@@ -221,6 +221,9 @@ class AgentVersion(Record, Base):
     role: Mapped[str] = mapped_column(String(30))
     label: Mapped[str] = mapped_column(String(80))
     model: Mapped[str] = mapped_column(String(100))
+    provider: Mapped[str] = mapped_column(String(20), default="gemini", server_default="gemini")
+    max_output_tokens: Mapped[int | None] = mapped_column(Integer)
+    reasoning_effort: Mapped[str | None] = mapped_column(String(20))
     prompt: Mapped[str] = mapped_column(Text)
     fingerprint: Mapped[str] = mapped_column(String(64))
 
@@ -266,6 +269,7 @@ class ModelCall(Record, Base):
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
     role: Mapped[str] = mapped_column(String(30))
     model: Mapped[str] = mapped_column(String(100))
+    provider: Mapped[str] = mapped_column(String(20), default="gemini", server_default="gemini")
     status: Mapped[str] = mapped_column(String(30), default="Reserved")
     reserved_micros: Mapped[int] = mapped_column(Integer)
     actual_micros: Mapped[int | None] = mapped_column(Integer)

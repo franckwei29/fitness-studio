@@ -38,6 +38,7 @@ flowchart LR
   Graph --> Redis[(Redis: checkpoints and dispatch limits)]
   Graph --> Gateway[Policy and budget gateway]
   Gateway --> Gemini[Gemini API]
+  Gateway --> OpenAI[OpenAI Responses API]
   Scheduler[Reminder and canary scheduler] --> SQL
 ```
 
@@ -47,7 +48,7 @@ flowchart LR
 - Owners can restrict each group's role-specific profile fields in Member groups. The editor reads the server's fixed role boundaries, distinguishes standard access from an explicit empty whitelist, and shows permission differences. A proposal does not change access until its exact candidate is approved and executed.
 - Training and nutrition candidates form an exact validated pair. Activation atomically updates current pointers. Historical versions remain available.
 - Members can inspect their immutable confirmed profile history, including the source assessment reference and field changes between versions. History reads are scoped to the authenticated member and never restore older facts or activate plans.
-- Every paid dispatch needs a budget reservation and a shared rate permit: 10 calls per rolling hour globally and 100 per rolling 24 hours for each authenticated account. Unknown provider usage retains funds and is not reported as zero cost. Releasing an expired local concurrency slot does not reconcile billing or retry the original request.
+- Every paid dispatch needs a budget reservation and a shared rate permit: 100 calls per rolling hour for each provider/model and 200 per rolling 24 hours for each authenticated account across all models. Unknown provider usage retains funds and is not reported as zero cost. Releasing an expired local concurrency slot does not reconcile billing or retry the original request.
 - Owner trace inspection and JSON downloads use an explicit operational-field allowlist. Raw prompts, health facts, model outputs, provider identifiers, and free-text diagnostics are excluded. Raw LangGraph cloud tracing is disabled even when ambient tracing is enabled. Optional LangSmith export sends only the reviewed snapshot, with an exact fingerprint and a persistent single-attempt receipt; remote uncertainty never changes application work or accounting. See [trace export configuration](docs/RUNNING.md#optional-redacted-trace-export).
 - Structurally valid candidates that fail domain validation receive at most two corrective generations shared across the original request's roles. Each correction receives the failed candidate and recorded violations, uses the original deadline and budget scopes, and preserves invalid versions in history. Exhausting the revision or call limit stops the request without activation.
 - The scheduler closes expired queued and waiting requests, expires pending approvals, recovers abandoned leases conservatively, and handles deterministic notifications and approved canary observation rules. Expiry preserves completed work and accounting evidence, including reservations for unknown provider usage. Missing observations cannot count as a successful release.
@@ -67,8 +68,10 @@ flowchart LR
 
 ## Verification and scope boundaries
 
-From an installed development environment, run `.venv/bin/python scripts/test_backend.py`. This starts separate MySQL and Redis test services, migrates the test database, and runs pytest with Gemini disabled and no API key. Test records stay separate from the application database. Browser fixture tests verify interaction behavior; they do not establish live model quality.
+From an installed development environment, run `.venv/bin/python scripts/test_backend.py`. This starts separate MySQL and Redis test services, migrates the test database, and runs pytest with both providers disabled and no API keys. Test records stay separate from the application database. Browser fixture tests verify interaction behavior; they do not establish live model quality.
 
 Build the frontend with `npm run build` from `frontend`. Browser tests require a running development web server and Chrome; use `npx playwright test` from that directory. Some browser tests exercise the API while others provide explicit synthetic responses.
 
-The exercise and food catalogues are deliberately bounded; unsupported inputs must not be silently replaced with invented entries. The API readiness endpoint checks persistence connectivity and schema revision, not successful Gemini generation. A passing build or synthetic test suite is not a substitute for live end-to-end acceptance. Final deployment, live model acceptance, and release evidence must be verified separately.
+The exercise and food catalogues are deliberately bounded; unsupported inputs must not be silently replaced with invented entries. The API readiness endpoint checks persistence connectivity and schema revision, not successful model generation. A passing build or synthetic test suite is not a substitute for live end-to-end acceptance. Final deployment, live model acceptance, and release evidence must be verified separately.
+
+Model setup, limits, and rollback: [Model providers](docs/MODEL_PROVIDERS.md).

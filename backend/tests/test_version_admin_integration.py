@@ -86,3 +86,45 @@ def test_candidate_save_deduplicates_without_changing_groups():
         client.headers["x-csrf-token"] = member["csrf_token"]
         assert client.get("/api/owner/agent-versions").status_code == 403
         assert client.post("/api/owner/agent-versions", json=body).status_code == 403
+
+
+def test_provider_catalog_options_and_candidate_deduplication():
+    bootstrap()
+    settings = get_settings()
+    with TestClient(app) as client:
+        auth = client.post(
+            "/api/auth/login",
+            json={
+                "email": settings.owner_email,
+                "password": settings.owner_password.get_secret_value(),
+            },
+        ).json()
+        client.headers["x-csrf-token"] = auth["csrf_token"]
+        listing = client.get("/api/owner/agent-versions").json()
+        assert {row["provider"] for row in listing["models"]} == {"openai", "gemini"}
+        assert all("api_key" not in row for row in listing["models"])
+        body = {
+            "role": "Coach",
+            "label": f"Luna {uuid4()}",
+            "provider": "openai",
+            "model": "gpt-6-luna",
+            "max_output_tokens": 1024,
+            "reasoning_effort": "none",
+            "instructions": f"Explain clearly {uuid4()}.",
+        }
+        before = client.get("/api/owner/groups").json()
+        candidate = client.post("/api/owner/agent-versions", json=body)
+        assert candidate.status_code == 201, candidate.text
+        assert candidate.json()["provider"] == "openai" and candidate.json()["max_output_tokens"] == 1024
+        assert client.post("/api/owner/agent-versions", json=body).json()["id"] == candidate.json()["id"]
+        changed = client.post("/api/owner/agent-versions", json=body | {"max_output_tokens": 512})
+        assert changed.json()["fingerprint"] != candidate.json()["fingerprint"]
+        assert client.get("/api/owner/groups").json() == before
+        assert client.post("/api/owner/agent-versions", json=body | {"provider": "gemini"}).status_code == 422
+        assert (
+            client.post(
+                "/api/owner/agent-versions",
+                json=body | {"model": settings.gemini_model, "provider": "gemini"},
+            ).status_code
+            == 422
+        )
