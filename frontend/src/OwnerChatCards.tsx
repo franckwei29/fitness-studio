@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { ArrowUpRight, CheckCheck, ChevronDown, ClipboardCheck, CircleGauge, ContactRound, Users, Wallet, TriangleAlert, FlaskConical, Rocket, Bell, LoaderCircle, RefreshCw, Search, Clock3, Settings2, Zap } from 'lucide-react';
 import { api } from './api';
 import { Groups } from './Groups';
-import { Approvals } from './Approvals';
+import { Approvals, ApprovalStatus } from './Approvals';
 import { UsageAllowance } from './UsageAllowance';
 import { notifyOwnerChange, type OwnerTarget } from './ownerNavigation';
 
@@ -77,7 +77,7 @@ function OwnerItem({item,conversationId,onOpen,onChanged,proposal}:{item:Workspa
  const label=item.action==='approval'?(item.category==='Membership'?'Review application':'Review proposal'):item.action==='budget'?'Adjust budget':item.action==='member-group'?'Change group':item.action==='release-slot'?'Review slot release':item.action==='apply-configuration'?'Review approved change':item.action==='notification-read'?'Read update':item.can_cancel?'Cancel update':null;
  const needsAttention=/review|attention|pending|blocked/i.test(item.status);
  return <article className={`owner-task-card owner-category-${item.target.page}`} data-record-id={item.id}>
-  <div className="owner-task-heading"><span className="owner-task-icon"><BusinessIcon page={item.target.page}/></span><div><span className="owner-category">{item.category}</span><h3>{item.title}</h3></div><span className={`status-pill ${needsAttention?'attention':''}`}>{item.status}</span></div>
+  <div className="owner-task-heading"><span className="owner-task-icon"><BusinessIcon page={item.target.page}/></span><div><span className="owner-category">{item.category}</span><h3>{item.title}</h3></div>{['Approved','Rejected','Pending','Revise'].includes(item.status)?<ApprovalStatus decision={item.status}/>:<span className={`status-pill ${needsAttention?'attention':''}`}>{item.status}</span>}</div>
   <p>{item.description}</p>
   <div className="owner-task-actions">{label&&<button className="primary" aria-expanded={expanded} onClick={()=>{sessionStorage.setItem(expandedKey,String(!expanded));setExpanded(!expanded);}}>{label}<ChevronDown size={16} className={expanded?'rotated':''}/></button>}<button className="secondary" onClick={()=>onOpen(item.target)}>{item.target.section==='create'?(item.target.page==='versions'?'Create candidate':'Propose release'):item.target.section==='report'?'Open report':item.target.section==='trace'?'View evidence':item.target.page==='approvals'?'Open review details':item.target.page==='incidents'?'View recovery steps':item.target.page==='versions'?(item.target.section?.startsWith('evaluation:')?'Open comparison details':'Open version details'):item.target.page==='releases'?'Open release details':'Open details'}<ArrowUpRight size={16}/></button></div>
   {expanded&&<div className="owner-expanded">{item.action==='approval'?<Approvals targetId={item.id} embedded onChanged={()=>void onChanged(item.target)}/>:item.action==='apply-configuration'?<Groups embedded targetId={item.id} targetSection="change" onChanged={()=>void onChanged(item.target)}/>:item.action==='notification-read'||item.can_cancel?<InlineAction item={item} onChanged={onChanged}/>:['budget','member-group','release-slot'].includes(item.action||'')?<InlineEdit item={item} conversationId={conversationId} onChanged={onChanged} proposal={proposal}/>:<p role="status" className="owner-receipt"><CheckCheck size={18}/>This record has changed. Current status: {item.status}.</p>}</div>}

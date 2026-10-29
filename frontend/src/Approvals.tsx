@@ -1,6 +1,7 @@
 import { readRoute, routeHash, type OwnerTarget } from './ownerNavigation';
 import { useEffect, useRef, useState } from 'react';
 import { api } from './api';
+import { CircleCheck, CircleX, Clock3, RotateCcw } from 'lucide-react';
 
 export type Approval = {
   id: string; subject_kind: string; subject_id: string; subject_version: number;
@@ -9,6 +10,12 @@ export type Approval = {
     evaluation?: unknown; training?: unknown; nutrition?: unknown; validation?: unknown };
 };
 const label = (value: string) => value.replace(/([a-z])([A-Z])/g, '$1 $2');
+
+export function ApprovalStatus({decision}:{decision:string}) {
+  const status = ({Approved:{Icon:CircleCheck,text:'Approved'},Rejected:{Icon:CircleX,text:'Rejected'},Pending:{Icon:Clock3,text:'Pending'},Revise:{Icon:RotateCcw,text:'Revision requested'}} as const)[decision as 'Approved'|'Rejected'|'Pending'|'Revise'];
+  const Icon = status?.Icon;
+  return <span className={`badge review-status review-status--${status?decision.toLowerCase():'neutral'}`}>{Icon&&<Icon size={16} aria-hidden="true"/>}{status?.text||label(decision)}</span>;
+}
 
 export function ApprovalReview({ approval, onChanged, onClose }: {
   approval: Approval; onChanged?: (target?: OwnerTarget) => void; onClose?: () => void;
@@ -43,7 +50,7 @@ export function ApprovalReview({ approval, onChanged, onClose }: {
   const expired = !!current.expires_at && new Date(`${current.expires_at.replace(/Z$/, '')}Z`).getTime() <= Date.now();
   return <article className="review-card" aria-label="Approval details">
     {onClose && <button className="text-button" onClick={onClose}>Back to queue</button>}
-    <h2>{label(current.subject_kind)}</h2><p className="muted">Version {current.subject_version} · {current.decision}</p>
+    <h2>{label(current.subject_kind)}</h2><div className="review-detail-status"><span className="muted">Version {current.subject_version}</span><ApprovalStatus decision={current.decision}/></div>
     <dl>{Object.entries(current.context.facts || {}).map(([key, value]) => <div key={key}><dt>{key.replaceAll('_', ' ')}</dt><dd>{typeof value === 'boolean' ? (value ? 'Yes' : 'No') : Array.isArray(value) ? value.join(', ') || 'None' : String(value)}</dd></div>)}</dl>
     {['PlanPair', 'TrainingPlan', 'NutritionPlan'].includes(current.subject_kind) && <>
       {current.context.training != null && <><h3>Training candidate</h3><pre>{JSON.stringify(current.context.training, null, 2)}</pre></>}
@@ -59,7 +66,7 @@ export function ApprovalReview({ approval, onChanged, onClose }: {
     {notice && <p role="status" className="assessment-status">{notice}{['GroupConfiguration', 'AgentRelease'].includes(current.subject_kind) && current.decision === 'Approved' ? ' Execution is a separate step; the configuration has not been applied by this approval.' : ''}</p>}
     {current.decision === 'Approved' && current.subject_kind === 'GroupConfiguration' && <a className="text-button" href={routeHash({page:'groups',id:current.subject_id,section:'change'},readRoute().conversation)}>Open approved configuration change</a>}
     {current.decision === 'Approved' && current.subject_kind === 'AgentRelease' && <a className="text-button" href={routeHash({page:'releases',id:current.subject_id},readRoute().conversation)}>Open approved release</a>}
-    {current.decision === 'Pending' && !expired && <><label className="review-comment">Decision notes<textarea value={comment} onChange={e => { setComment(e.target.value); sessionStorage.setItem(draftKey, e.target.value); }} rows={3} maxLength={3000} /></label><div className="review-actions">{[['Approved', 'Approve'], ['Revise', 'Request revision'], ['Rejected', 'Reject']].map(([value, text]) => <button key={value} disabled={!!busy} onClick={() => decide(value)}>{busy === value ? 'Saving…' : text}</button>)}</div></>}
+    {current.decision === 'Pending' && !expired && <><label className="review-comment">Decision notes<textarea value={comment} onChange={e => { setComment(e.target.value); sessionStorage.setItem(draftKey, e.target.value); }} rows={3} maxLength={3000} /></label><div className="review-actions">{[['Approved', 'Approve'], ['Revise', 'Request revision'], ['Rejected', 'Reject']].map(([value, text]) => <button key={value} className={`review-decision-action review-decision-action--${value.toLowerCase()}`} disabled={!!busy} onClick={() => decide(value)}>{busy === value ? 'Saving…' : text}</button>)}</div></>}
     {current.decision === 'Pending' && expired && <p role="status">This review has expired. A new submission is required before a decision can be recorded.</p>}
   </article>;
 }
@@ -77,6 +84,6 @@ export function Approvals({ targetId, onChanged, embedded = false }: { targetId?
     {!embedded && <><span className="eyebrow">STUDIO OVERSIGHT</span><h1>Review queue</h1><p className="muted">Review the exact submitted information before making a decision. Changes to the application require a new review.</p></>}
     {error && <p role="alert" className="error">{error}</p>}
     <button className="text-button" onClick={() => load(selected?.id || targetId).catch(e => setError(e.message))}>Refresh queue</button>
-    {loading ? <p role="status">Loading review…</p> : missing ? <p role="alert" className="error">This review is unavailable. It may have been removed or you may no longer have access. No other review has been opened.</p> : selected ? <ApprovalReview key={selected.id} approval={selected} onClose={embedded ? undefined : () => setSelected(null)} onChanged={() => { onChanged?.({page:'approvals',id:selected.id}); load(selected.id).catch(e => setError(e.message)); }} /> : <div className="review-list">{!rows.length ? <p className="muted">No approvals have been submitted.</p> : rows.map(row => <button key={row.id} onClick={() => setSelected(row)}><span><strong>{label(row.subject_kind)}</strong><small>Version {row.subject_version} · {new Date(`${row.created_at}Z`).toLocaleString('en-AU')}</small></span><span className="badge">{row.decision}</span></button>)}</div>}
+    {loading ? <p role="status">Loading review…</p> : missing ? <p role="alert" className="error">This review is unavailable. It may have been removed or you may no longer have access. No other review has been opened.</p> : selected ? <ApprovalReview key={selected.id} approval={selected} onClose={embedded ? undefined : () => setSelected(null)} onChanged={() => { onChanged?.({page:'approvals',id:selected.id}); load(selected.id).catch(e => setError(e.message)); }} /> : <div className="review-list">{!rows.length ? <p className="muted">No approvals have been submitted.</p> : rows.map(row => <button key={row.id} onClick={() => setSelected(row)}><span><strong>{label(row.subject_kind)}</strong><small>Version {row.subject_version} · {new Date(`${row.created_at}Z`).toLocaleString('en-AU')}</small></span><ApprovalStatus decision={row.decision}/></button>)}</div>}
   </section>;
 }
