@@ -20,3 +20,17 @@ for(const width of [390,1440])test(`member decides training before meals and ope
  await page.getByRole('button',{name:'Continue with this training'}).click();await expect.poll(()=>nutritionCalls).toBe(1);
  await page.getByRole('button',{name:'Review final changes'}).click();await expect(page).toHaveURL(/section=pair%3Ap/);await expect(page.getByRole('heading',{name:'Your final update',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Confirm update',exact:true})).toBeVisible();await page.reload();await expect(page.getByRole('heading',{name:'Your final update',exact:true})).toBeVisible();expect(nutritionCalls).toBe(1);
 });
+
+test('My plans cancellation confirms in place without opening another detail',async({page})=>{
+ let cancelled=false;
+ await page.route('**/api/**',async route=>{const path=new URL(route.request().url()).pathname;let data:any=[];
+ if(path==='/api/auth/me')data={user:{id:'u',role:'Member',display_name:'Member'},csrf_token:'x'};
+ if(path==='/api/me/plans')data={member_status:'Accepted',plans:[],pairs:[],current:{version:1},catalogue_labels:{},workflows:{r:{id:'f',request_id:'r',stage:cancelled?'Cancelled':'TrainingDiscussion',revision:3,training_id:'t',actions:['cancel'],goal:'Training update',status:'AwaitingConfirmation'}}};
+ if(path==='/api/requests/r/cancel'){cancelled=true;data={status:'Cancelled'};}
+ await route.fulfill({json:data});});
+ await page.goto('/#/workspace/plans');await page.getByRole('button',{name:'Cancel update',exact:true}).click();
+ await expect(page.getByRole('dialog',{name:'Cancel update?'})).toBeVisible();
+ await expect(page).toHaveURL(/#\/workspace\/plans$/);
+ await page.getByRole('button',{name:'Confirm cancellation'}).click();
+ await expect.poll(()=>cancelled).toBe(true);await expect(page.getByRole('dialog')).toHaveCount(0);
+});
