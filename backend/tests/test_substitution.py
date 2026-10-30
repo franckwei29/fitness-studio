@@ -54,3 +54,14 @@ def test_scope_violations_are_rejected(change):
     assert check_substitution(
         NutritionProposal.model_validate(revised), baseline, {"meal_index": 0, "portion_index": 0}
     )
+
+
+def test_multiple_selected_portions_change_together_without_touching_others():
+    baseline = original()
+    revised = deepcopy(baseline)
+    revised['meals'][0]['portions'][1] = {'food_id':'banana','grams':'80'}
+    revised['meals'][1]['portions'][0] = {'food_id':'oats','grams':'60'}
+    selection = {'selections':[{'meal_index':0,'portion_index':1},{'meal_index':1,'portion_index':0}]}
+    assert check_substitution(NutritionProposal.model_validate(revised), baseline, selection) == []
+    revised['meals'][0]['portions'][0]['grams'] = '70'
+    assert check_substitution(NutritionProposal.model_validate(revised), baseline, selection)

@@ -9,6 +9,7 @@ from app.agent_contracts import COMMON_INSTRUCTION, StrictModel
 from app.agent_graph import graph_config, persistent_graph
 from app.agent_versions import resolve_version
 from app.database import transaction
+from app.member_actions import ActionDetails, pending_actions, proposal
 from app.member_experience import plan_summary
 from app.model_gateway import generate
 from app.models import (
@@ -47,11 +48,20 @@ remain English. Do not claim a draft is already created or active. The app decid
 which actions can run. Existing plan cards are not calendar appointments. No diagnosis,
 medical prescription, new personal nutrient target, or bypass of admission or policy.
 Do not change an existing plan for mere feedback; offer its feedback control instead.
-Feedback: requests to record effort, completion or meal feedback; open the existing
-feedback form without silently saving. Substitution: replace a specific meal or food;
-open its exact selection and confirmation flow, not a whole-plan regeneration.
+Feedback: record training or meal feedback in an inline preview. Substitution: replace
+specific foods in the CURRENT active meal plan. CycleReview: confirm a completed training
+period and request the next cycle. ViewAllowance: remaining usage and limits. ViewUpdates:
+notifications and review outcomes. For Feedback, Substitution and CycleReview populate
+action_details ONLY with facts explicitly supplied by the member. Use supplied current
+plan food indices (zero-based) in selections; only when the meal and food are unambiguous.
+Never guess discomfort, completion, difficulty, dates or quantities. Carry explicit answers
+from pending_member_actions when the member is answering its missing fields. Preserve the
+original replacement target in preference, including a requested banana etc. Multiple
+selected foods belong in one preview. Clarify when uncertain. Do not send the member to a
+page or claim saving: the app shows an inline preview, asks only for missing details and
+requires confirmation. Questions about possibility are Answer, not a change request.
 ViewActivity: read progress or review status. ReviewDrafts: requests to activate or
-accept a plan; show the exact drafts for confirmation, never activate in chat.
+accept a plan; show the exact drafts for explicit confirmation; never activate from model text.
 Cancel: stop or withdraw a pending update; show the user's pending updates for explicit
 cancellation. If a new restriction or injury affects a requested plan change, use
 Intake first so those facts are reviewed before any new planning.
@@ -74,6 +84,9 @@ class IntentReply(StrictModel):
         "ReviewDrafts",
         "Feedback",
         "Substitution",
+        "CycleReview",
+        "ViewAllowance",
+        "ViewUpdates",
         "Cancel",
         "Clarify",
         "Intake",
@@ -82,6 +95,7 @@ class IntentReply(StrictModel):
         "Combined",
         "Consult",
     ]
+    action_details: ActionDetails | None = None
     reply: str = Field(min_length=1, max_length=5000)
     consultation_role: Literal["Intake", "Coach", "Nutrition"] = "Intake"
     offer_consultation: Literal["None", "Coach", "Nutrition"] = "None"
@@ -152,8 +166,15 @@ def apply_intent(db, request, item, decision):
     if decision.intent in {"ViewActivity", "Cancel"}:
         cards.append({"type": "Activity"})
         if decision.intent == "Cancel":
-            text = "Choose the update to cancel in Activity. Your current plans will stay unchanged."
-    if decision.intent in {"Feedback", "Substitution", "ReviewDrafts"}:
+            text = "Choose the update below and confirm cancellation. Your current plans stay unchanged."
+    if decision.intent in {"Feedback", "Substitution", "CycleReview"}:
+        cards.append(proposal(db, request, decision.intent, decision.action_details))
+        role = "Nutrition" if decision.intent == "Substitution" or (decision.action_details and decision.action_details.plan_kind == "Nutrition") else "Coach"
+        if session.active_role != role:
+            session.active_role = role
+            cards.insert(0, {"type": "Handoff", "role": role})
+        request.payload = request.payload | {"speaker": role}
+    if decision.intent in {"ReviewDrafts", "ViewAllowance", "ViewUpdates"}:
         cards.append({"type": decision.intent})
     recent = list(
         db.scalars(
@@ -361,6 +382,7 @@ def run_auto(claim):
                 "admitted": bool(member and member.status == "Accepted"),
                 "intake_status": assessment.status if assessment else None,
                 "current_plans": plan_summary(db, request.user_id),
+                "pending_member_actions": pending_actions(db, request.session_id),
                 "draft_context": discussion_context(
                     db, session_id=request.session_id, user_id=request.user_id
                 ),

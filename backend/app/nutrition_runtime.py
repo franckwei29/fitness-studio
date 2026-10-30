@@ -148,7 +148,7 @@ def run_nutrition(claim):
                         {
                             "substitution": request.payload["substitution"],
                             "baseline_plan": baseline.content,
-                            "change_scope": "Replace only the selected meal portion (zero-based indices). Preserve every other meal and portion exactly. You may update preparation instructions for the selected meal.",
+                            "change_scope": "Replace only the selected meal portions (zero-based indices; selections lists all targets when present). Preserve every unselected meal and portion exactly. Honour the requested replacement foods when supported. You may update preparation instructions for selected meals.",
                         }
                         if baseline
                         else {}

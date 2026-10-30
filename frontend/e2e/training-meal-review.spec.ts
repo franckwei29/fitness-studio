@@ -12,5 +12,5 @@ for(const changed of [false,true])test(`meal decision appears after concrete rev
  await expect(page.getByRole('button',{name:'Review both plans',exact:true})).toHaveCount(0);
  const preserve=page.getByRole('button',{name:'Keep meals · Revise training'});
  if(changed){await preserve.click();await expect.poll(()=>action?.action).toBe('ReviseTrainingKeepMeals');expect(action.source_request_id).toBe('r');}
- else{await expect(preserve).toHaveCount(0);await page.getByRole('button',{name:'Review training · Meals unchanged'}).click();await expect(page).toHaveURL(/section=pair%3Apair/);}
+ else{await expect(preserve).toHaveCount(0);await page.getByRole('button',{name:'Review training · Meals unchanged'}).click();await expect(page.getByRole('dialog',{name:'Your plans'})).toBeVisible();}
 });

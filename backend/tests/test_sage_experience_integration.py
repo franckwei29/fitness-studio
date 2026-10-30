@@ -286,7 +286,12 @@ def test_actions_offer_exact_existing_flow_without_silent_writes(member, monkeyp
     result, _ = send(member, conversation)
     run_once(result["request_id"])
     history = member.get(f"/api/conversations/{conversation}").json()
-    assert history["messages"][-1]["cards"] == [{"type": card}]
+    if intent in {"Feedback", "Substitution"}:
+        preview = next(c for c in history["messages"][-1]["cards"] if c["type"] == "MemberAction")
+        assert preview["kind"] == intent
+        assert preview["state"] == "Pending"
+    else:
+        assert history["messages"][-1]["cards"] == [{"type": card}]
     assert history["requests"][-1]["kind"] == "Auto"
 
 

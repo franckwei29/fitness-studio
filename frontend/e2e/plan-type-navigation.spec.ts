@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-test('plan views select training or meals and persist on reload',async({page})=>{
+test('plan dialogs select training or meals without leaving chat',async({page})=>{
  const plans=[{id:'meal',kind:'Nutrition',version:1,content:{title:'Meal example',meals:[]},availability:{usable:true},status:'Active',request_id:'r'},{id:'train',kind:'Training',version:2,content:{title:'Strength routine',sessions:[]},availability:{usable:true},status:'Active',request_id:'r'}];
  await page.route('**/api/**',async route=>{let data:any=[];const path=new URL(route.request().url()).pathname;
  if(path==='/api/auth/me')data={user:{id:'u',display_name:'Member',role:'Member'},csrf_token:'x'};
@@ -10,13 +10,12 @@ test('plan views select training or meals and persist on reload',async({page})=>
  await route.fulfill({json:data});});
  await page.goto('/#/assistant/c');
  await page.locator('.chat-plan-card').filter({hasText:'Your training'}).getByRole('button',{name:'View plan'}).click();
- await expect(page).toHaveURL(/section=Training/);
+ await expect(page).toHaveURL(/#\/assistant\/c$/);
  await expect(page.getByRole('heading',{name:'Strength routine',exact:true})).toBeVisible();
  await expect(page.getByRole('heading',{name:'Meal example',exact:true})).toHaveCount(0);
- await page.reload();await expect(page.getByRole('heading',{name:'Your training',exact:true})).toBeVisible();
- await page.getByRole('button',{name:'Back to conversation'}).click();
+ await page.getByRole('button',{name:'Close dialog'}).click();
  await page.locator('.chat-plan-card').filter({hasText:'Your meals'}).getByRole('button',{name:'View plan'}).click();
- await expect(page).toHaveURL(/section=Nutrition/);
+ await expect(page).toHaveURL(/#\/assistant\/c$/);
  await expect(page.getByRole('heading',{name:'Meal example',exact:true})).toBeVisible();
  await expect(page.getByRole('heading',{name:'Strength routine',exact:true})).toHaveCount(0);
 });

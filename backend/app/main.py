@@ -18,6 +18,7 @@ from app.database import transaction
 from app.feedback import router as feedback_router
 from app.group_configuration import router as group_router
 from app.incidents import router as incidents_router
+from app.member_actions import router as member_actions_router
 from app.member_admin import router as member_admin_router
 from app.member_experience import router as experience_router
 from app.models import LoginSession, User
@@ -169,3 +170,6 @@ app.include_router(experience_router)
 app.include_router(owner_updates_router)
 
 app.include_router(workflows_router)
+
+
+app.include_router(member_actions_router)

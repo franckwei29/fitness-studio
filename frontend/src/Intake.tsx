@@ -15,7 +15,7 @@ const questions:Record<string,string> = {
 };
 const canEdit = (assessment:Assessment|null) => !!assessment && ['Collecting','NeedsInformation','PendingOwnerReview'].includes(assessment.status);
 
-export function Intake(){
+export function Intake({onDirtyChange}:{onDirtyChange?:(dirty:boolean)=>void}={}){
   const [assessment,setAssessment]=useState<Assessment|null>(null);
   const [editing,setEditing]=useState<Assessment|null>(null);
   const [profile,setProfile]=useState<Profile|null>(null);
@@ -61,7 +61,7 @@ export function Intake(){
     mutation.current=true;generation.current++;setBusy(true);setError('');
     try{
       const result=await api<Assessment>(`/assessments/${editing.id}/confirm`,{expected_version:editing.version,facts});
-      setAssessment(result);setEditing(result.status==='NeedsInformation'?result:null);
+      onDirtyChange?.(false);setAssessment(result);setEditing(result.status==='NeedsInformation'?result:null);
       try{setProfile(await api<Profile>('/me/profile'));setSyncError('');}
       catch{setSyncError('Your submission was saved. Membership status will refresh automatically.');}
     }catch(e){setError((e as Error).message);}
@@ -78,7 +78,7 @@ export function Intake(){
     <span className="eyebrow">A FOUNDATION FOR YOUR PLAN</span><h1>Your starting point</h1>
     <p className="muted">Review your goals, availability, and eligibility before personalised planning begins.</p>
     <div className="profile-status"><strong>Membership status</strong><span>{pending?'Awaiting owner review':profile?.member?.status||'Intake not completed'}</span>{profile?.member&&<small>Confirmed profile version {profile.member.profile_version}</small>}</div>
-    {loading?<p role="status">Loading your details…</p>:!assessment?<>{feedback}<button className="primary start-intake" disabled={busy||!profile} onClick={start}>{busy?'Opening intake…':profile?.member?'Review or update my profile':'Start my intake'}</button></>:<form onSubmit={confirm} className="intake-form" key={`${displayed?.id}:${displayed?.version}:${!!editing}`}>
+    {loading?<p role="status">Loading your details…</p>:!assessment?<>{feedback}<button className="primary start-intake" disabled={busy||!profile} onClick={start}>{busy?'Opening intake…':profile?.member?'Review or update my profile':'Start my intake'}</button></>:<form onChange={()=>onDirtyChange?.(true)} onSubmit={confirm} className="intake-form" key={`${displayed?.id}:${displayed?.version}:${!!editing}`}>
       <h2>Goals and routine</h2>
       {editing&&<p className="muted">{pending?'You are editing your submitted details. Submitting changes replaces the previous review.':'Review every answer before confirming.'}</p>}
       <div className="form-grid">
@@ -101,8 +101,8 @@ export function Intake(){
         {!editing&&assessment.status==='ReferredOut'&&<p role="status">Your needs are outside this service’s scope. Please seek appropriate professional guidance.</p>}
         {stale&&<p role="alert">Your review status changed while you were editing. Review the latest details before making further changes.</p>}
         {feedback}
-        {editing&&!stale&&<><label className="confirmation"><input type="checkbox" disabled={busy} required/> I have reviewed these details and confirm they are accurate.</label><div className="intake-actions"><button className="primary" disabled={busy}>{busy?'Submitting your details…':pending?'Submit updated details':'Confirm my details'}</button>{pending&&<button type="button" disabled={busy} onClick={()=>{setEditing(null);setError('');}}>Cancel editing</button>}</div></>}
-        {stale&&<button type="button" onClick={()=>{setEditing(null);setError('');}}>Review latest details</button>}
+        {editing&&!stale&&<><label className="confirmation"><input type="checkbox" disabled={busy} required/> I have reviewed these details and confirm they are accurate.</label><div className="intake-actions"><button className="primary" disabled={busy}>{busy?'Submitting your details…':pending?'Submit updated details':'Confirm my details'}</button>{pending&&<button type="button" disabled={busy} onClick={()=>{setEditing(null);setError('');onDirtyChange?.(false);}}>Cancel editing</button>}</div></>}
+        {stale&&<button type="button" onClick={()=>{setEditing(null);setError('');onDirtyChange?.(false);}}>Review latest details</button>}
         {!editing&&(canEdit(assessment)?<button type="button" onClick={()=>{setEditing(assessment);setError('');}}>{pending?'Edit submitted details':'Edit my details'}</button>:<button type="button" disabled={busy} onClick={start}>{busy?'Opening intake…':'Review or update my profile'}</button>)}
       </div>
     </form>}

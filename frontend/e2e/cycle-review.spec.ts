@@ -1,36 +1,11 @@
-import { test, expect } from '@playwright/test';
-
-// Isolated UI fixtures verify confirmation and status wording, not model behavior.
-test('member explicitly confirms cycle feedback and sees awaiting confirmation',async({page})=>{
- let submitted:any=null;
- const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
- await page.route('**/api/**',async route=>{
-  const path=new URL(route.request().url()).pathname;let data:unknown;
-  if(new URL(route.request().url()).pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
-  if(path==='/api/auth/me')data={user:{id:'member',display_name:'Test Member',role:'Member'},csrf_token:'test'};
-  else if(path==='/api/conversations')data=[];
-  else if(path==='/api/me/plans')data={member_status:'Accepted',catalogue_labels:{},substitutions_enabled:false,current:{version:1,training_id:'training',nutrition_id:null,pair_id:null},pairs:[],plans:[{id:'training',request_id:'old',kind:'Training',version:1,status:'Active',availability:{usable:true,reason:null},content:{title:'Current routine'},rationale:'Fixture'}]};
-  else if(path==='/api/me/cycle-reviews'){submitted=route.request().postDataJSON();data={request_id:'review'};}
-  else if(path==='/api/requests/review')data={status:'AwaitingConfirmation'};
-  else throw new Error(`Unexpected test request: ${path}`);
-  await route.fulfill({json:data});
- });
- await page.goto('/');await page.getByRole('button',{name:'My plans',exact:true}).click();
- await page.getByRole('button',{name:'Review this training cycle'}).click();
- await expect(page.getByRole('combobox',{name:'Overall difficulty',exact:true})).toHaveValue('');
- await expect(page.getByRole('combobox',{name:'Did you experience discomfort?',exact:true})).toHaveValue('');
- await page.getByLabel('Period start').fill('2026-10-01');await page.getByLabel('Period end').fill('2026-10-07');
- await page.getByLabel('Sessions planned for this period').fill('3');await page.getByLabel('Sessions you actually completed').fill('2');
- await page.getByRole('combobox',{name:'Overall difficulty',exact:true}).selectOption('Manageable');
- await page.getByRole('combobox',{name:'Did you experience discomfort?',exact:true}).selectOption('no');
- await page.getByRole('combobox',{name:'Requested adjustment',exact:true}).selectOption('Maintenance');
- await page.getByLabel('What did you experience?').fill('I completed two sessions and missed one because of travel.');
- await page.getByRole('button',{name:'Request next-cycle candidate'}).click();expect(submitted).toBeNull();
- await page.getByRole('checkbox',{name:'I confirm this feedback describes my actual experience.'}).check();
- await page.getByRole('button',{name:'Request next-cycle candidate'}).click();
- await expect(page.getByText('Confirmed feedback saved and cycle review queued. Your active plan has not changed.')).toBeVisible();
- expect(submitted.feedback).toMatchObject({training_id:'training',completed_sessions:2,confirmed:true,discomfort:false});
- await page.getByRole('button',{name:'Check cycle review progress'}).click();
- await expect(page.getByText('Your next-cycle candidate is ready. Review and activate it below to complete the cycle review.')).toBeVisible();
- expect(errors).toEqual([]);
+import {test,expect} from '@playwright/test';
+test('member completes cycle review in chat and confirms only after preview',async({page})=>{
+ let saved=false;let card:any={type:'MemberAction',kind:'CycleReview',state:'Pending',revision:1,details:{plan_kind:'Training'},labels:{},plans:[{id:'t',kind:'Training',content:{title:'Current training'}}]};
+ await page.route('**/api/**',async r=>{const path=new URL(r.request().url()).pathname;let data:any=[];
+ if(path==='/api/auth/me')data={user:{id:'u',role:'Member',display_name:'Member'},csrf_token:'x'};
+ if(path==='/api/conversations')data=[{id:'c',title:'Review',active_role:'Coach'}];
+ if(path==='/api/conversations/c')data={conversation:{id:'c',title:'Review',active_role:'Coach'},messages:[{id:'m',sender:'Coach',content:'Tell me how your cycle went.',cards:[card]}],requests:[]};
+ if(path==='/api/conversations/c/member-actions/m'){const b=r.request().postDataJSON();if(b.action==='edit')card={...card,details:b.details,revision:2};if(b.action==='confirm'){expect(card.details).toMatchObject({completed_sessions:2,discomfort:false,adjustment:'Maintenance'});saved=true;card={...card,state:'Completed',revision:3};}data=card;}
+ await r.fulfill({json:data});});
+ await page.goto('/#/assistant/c');await expect(page.getByRole('button',{name:'Confirm review & prepare draft'})).toBeDisabled();await page.getByRole('button',{name:'Complete details'}).click();await expect(page.getByLabel('Did you experience discomfort?')).toHaveValue('');await page.getByLabel('Start date').fill('2026-10-01');await page.getByLabel('End date').fill('2026-10-07');await page.getByLabel('Planned sessions',{exact:true}).fill('3');await page.getByLabel('Completed sessions',{exact:true}).fill('2');await page.getByLabel('How did it feel?').selectOption('Manageable');await page.getByLabel('Did you experience discomfort?').selectOption('false');await page.getByLabel('Preferred direction').selectOption('Maintenance');await page.getByLabel('Your experience').fill('I completed two sessions and missed one due to travel.');await page.getByRole('button',{name:'Update preview'}).click();expect(saved).toBe(false);await page.getByRole('button',{name:'Confirm review & prepare draft'}).click();await expect.poll(()=>saved).toBe(true);await expect(page).toHaveURL(/#\/assistant\/c$/);await expect(page.getByText('Request submitted. Follow the next update in this conversation.')).toBeVisible();
 });
