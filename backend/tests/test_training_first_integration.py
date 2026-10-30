@@ -83,8 +83,54 @@ def test_training_first_drafts_then_decides(member, monkeypatch, decision):
     conversation = member.post("/api/conversations").json()["id"]
     result, _ = send(member, conversation, "Make training easier, within 30 minutes.")
     rid = result["request_id"]
-    for _ in range(3):
+    for _ in range(2):
         assert run_once(rid)
+    assert not run_once(rid), "Nutrition must not run before member endorsement"
+    workflow = member.get(f"/api/conversations/{conversation}").json()["workflows"][0]
+    assert workflow["stage"] == "TrainingDiscussion"
+    if decision == "Retain":
+        initial = workflow["training_id"]
+        deadline = member.get(f"/api/requests/{rid}").json()["deadline"]
+        path = f"/api/me/workflows/{workflow['id']}/actions"
+        follow, _ = send(member, conversation, "Please adjust the current draft to use fewer exercises.")
+        assert run_once(follow["request_id"])
+        assert member.get(f"/api/requests/{follow['request_id']}").json()["status"] == "Completed"
+        assert run_once(rid)
+        assert not run_once(rid)
+        workflow = member.get(f"/api/conversations/{conversation}").json()["workflows"][0]
+        for feedback in ["Remove one exercise.", "Use fewer sets.", "Allow longer rests."]:
+            revised = member.post(
+                path,
+                json=dict(
+                    action="revise_training",
+                    expected_revision=workflow["revision"],
+                    operation_key=str(uuid4()),
+                    feedback=feedback,
+                ),
+            )
+            assert revised.status_code == 200, revised.text
+            assert run_once(rid)
+            assert not run_once(rid)
+            workflow = member.get(f"/api/conversations/{conversation}").json()["workflows"][0]
+            assert workflow["stage"] == "TrainingDiscussion"
+            assert workflow["training_id"] != initial
+        assert member.get(f"/api/requests/{rid}").json()["deadline"] == deadline
+        assert not any(c.get("training_version_id") for c in contexts)
+        messages = member.get(f"/api/conversations/{conversation}").json()["messages"]
+        assert len({m["id"] for m in messages}) == len(messages)
+    draft = member.get("/api/me/plan-drafts/" + workflow["training_id"]).json()["plan"]
+    operation = dict(
+        action="endorse_training",
+        expected_revision=workflow["revision"],
+        operation_key=str(uuid4()),
+        target_id=draft["id"],
+        target_fingerprint=draft["fingerprint"],
+    )
+    path = f"/api/me/workflows/{workflow['id']}/actions"
+    queued = member.post(path, json=operation)
+    assert queued.status_code == 200, queued.text
+    assert member.post(path, json=operation).json() == queued.json()
+    assert run_once(rid)
     response = member.get(f"/api/requests/{rid}").json()
     assert response["status"] == "AwaitingConfirmation", response
     assert response["result"].get("meal_changes") == (decision == "SuggestChanges"), response
@@ -95,30 +141,25 @@ def test_training_first_drafts_then_decides(member, monkeypatch, decision):
         draft = db.get(PlanVersion, response["result"]["nutrition_id"])
         assert draft.content["meals"][0]["portions"][0]["grams"] == ("150" if decision == "Retain" else "175")
     if decision == "SuggestChanges":
-        follow, body = send(
-            member,
-            conversation,
-            "Keep meals; adapt training.",
-            action="ReviseTrainingKeepMeals",
-            source_request_id=rid,
+        workflow = member.get(f"/api/conversations/{conversation}").json()["workflows"][0]
+        assert workflow["stage"] == "MealImpact"
+        rejected = member.post(
+            f"/api/me/plans/pairs/{pair_id}/confirm",
+            json=dict(request_id=rid, expected_current_version=original[2], operation_key=str(uuid4())),
         )
-        assert member.post(f"/api/conversations/{conversation}/messages", json=body).json() == follow
-        assert (
-            member.post(
-                f"/api/conversations/{conversation}/messages", json=body | {"key": str(uuid4())}
-            ).status_code
-            == 409
+        assert rejected.status_code == 409
+        revisit = member.post(
+            path,
+            json=dict(
+                action="keep_meals", expected_revision=workflow["revision"], operation_key=str(uuid4())
+            ),
         )
-        assert member.get(f"/api/requests/{rid}").json()["status"] == "Cancelled"
-        assert run_once(follow["request_id"])
+        assert revisit.status_code == 200, revisit.text
+        assert run_once(rid)
         assert contexts[-1]["meal_constraint"]["meals"]["meals"] == meals["meals"]
-        assert (
-            member.post(
-                f"/api/me/plans/pairs/{pair_id}/confirm",
-                json=dict(request_id=rid, expected_current_version=original[2], operation_key=str(uuid4())),
-            ).status_code
-            == 409
-        )
+        assert not run_once(rid)
+        with transaction() as db:
+            assert db.get(CurrentPlans, member_id).version == original[2]
     else:
         activated = member.post(
             f"/api/me/plans/pairs/{pair_id}/confirm",

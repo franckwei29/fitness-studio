@@ -15,6 +15,13 @@ def apply_plan_decision(db, approval, plans, decision, comment):
     request = db.scalar(select(Request).where(Request.id == source.request_id).with_for_update())
     if not request or request.deadline <= now() or request.status in {"Cancelled", "Stopped"}:
         raise HTTPException(409, "The source request has ended or expired.")
+    from app.workflows import find
+
+    current_flow = find(db, request)
+    if current_flow and current_flow.stage != "OwnerReview":
+        raise HTTPException(
+            409, "The member must complete the draft directions before this version can be reviewed."
+        )
     field = "pair_id" if approval.subject_kind == "PlanPair" else source.kind.lower() + "_id"
     if (request.result or {}).get(field) != approval.subject_id:
         raise HTTPException(409, "This review no longer describes the latest request candidate.")
@@ -65,6 +72,32 @@ def apply_plan_decision(db, approval, plans, decision, comment):
             db.flush()
             request.result = (request.result or {}) | {"status": "Queued", "owner_revision_work_id": item.id}
             text = f"The owner requested changes. Revision {request.revisions} of {MAX_CORRECTIONS} is queued within the original request. Your active plan has not changed."
+    from app.workflows import find, set_stage
+
+    flow = find(db, request)
+    if flow:
+        if decision == "Approved":
+            set_stage(db, flow, request, "FinalReview", "Nutrition" if flow.nutrition_id else "Coach", text)
+        elif decision == "Revise" and request.status == "Queued":
+            if role == "Coach":
+                flow.training_endorsement = flow.nutrition_endorsement = None
+            else:
+                flow.nutrition_endorsement = None
+            set_stage(
+                db, flow, request, "GeneratingTraining" if role == "Coach" else "GeneratingMeals", role, text
+            )
+    if flow:
+        from app.models import Notification
+
+        db.add(
+            Notification(
+                user_id=request.user_id,
+                business_key=f"workflow:{flow.id}:{approval.id}",
+                title="Studio review · " + decision,
+                body=text,
+                kind="Workflow",
+            )
+        )
     request.result = (request.result or {}) | {"review_decision": decision, "review_message": text}
     if request.session_id:
         db.add(

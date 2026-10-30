@@ -241,13 +241,23 @@ def conversation(identifier: str, user: User = Depends(principal)):
 
     with transaction() as db:
         row = owned(db, ChatSession, identifier, user)
+        from app.models import ConversationEntry
+
         messages = db.scalars(
-            select(Message).where(Message.session_id == identifier).order_by(Message.created_at, Message.id)
+            select(Message)
+            .join(ConversationEntry, ConversationEntry.message_id == Message.id)
+            .where(Message.session_id == identifier)
+            .order_by(ConversationEntry.sequence)
         )
         requests = db.scalars(
             select(Request).where(Request.session_id == identifier).order_by(Request.created_at, Request.id)
         )
+        from app.workflows import find
+        from app.workflows import view as workflow_view
+
+        requests = list(requests)
         return {
+            "workflows": [workflow_view(db, flow) for request in requests if (flow := find(db, request))],
             "conversation": view(row),
             "event_cursor": db.scalar(
                 select(func.max(RequestEvent.sequence))
@@ -421,6 +431,10 @@ def submit_message(identifier: str, body: Submission, user: User = Depends(princ
                 },
             )
         )
+        if body.purpose in {"Training", "Nutrition", "Combined"}:
+            from app.workflows import start
+
+            start(db, request, role)
         db.add(
             RequestEvent(
                 request_id=request.id, event_type="queued", payload={"status": "Queued", "role": role}
@@ -497,6 +511,18 @@ def cancel_request(identifier: str, user: User = Depends(principal)):
             .order_by(ModelCall.id)
         ):
             cancel_reserved_in_transaction(db, call_id)
+        from app.workflows import find, set_stage
+
+        flow = find(db, request)
+        if flow:
+            set_stage(
+                db,
+                flow,
+                request,
+                "Cancelled",
+                db.get(ChatSession, request.session_id).active_role,
+                "This update is cancelled. Your current routine remains in use.",
+            )
         db.add(RequestEvent(request_id=identifier, event_type="cancelled", payload={"status": "Cancelled"}))
         db.add(
             AuditEvent(

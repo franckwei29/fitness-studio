@@ -1,3 +1,4 @@
+import {PlanContent} from './PlanContent';
 import { readRoute, routeHash, type OwnerTarget } from './ownerNavigation';
 import { useEffect, useRef, useState } from 'react';
 import { api } from './api';
@@ -7,7 +8,7 @@ export type Approval = {
   id: string; subject_kind: string; subject_id: string; subject_version: number;
   fingerprint: string; decision: string; created_at: string; expires_at: string;
   context: { facts?: Record<string, unknown>; baseline?: unknown; candidate?: unknown;
-    evaluation?: unknown; training?: unknown; nutrition?: unknown; validation?: unknown };
+    catalogue_labels?:Record<string,string>;evaluation?: unknown; training?: unknown; nutrition?: unknown; validation?: unknown };
 };
 const label = (value: string) => value.replace(/([a-z])([A-Z])/g, '$1 $2');
 
@@ -53,9 +54,9 @@ export function ApprovalReview({ approval, onChanged, onClose }: {
     <h2>{label(current.subject_kind)}</h2><div className="review-detail-status"><span className="muted">Version {current.subject_version}</span><ApprovalStatus decision={current.decision}/></div>
     <dl>{Object.entries(current.context.facts || {}).map(([key, value]) => <div key={key}><dt>{key.replaceAll('_', ' ')}</dt><dd>{typeof value === 'boolean' ? (value ? 'Yes' : 'No') : Array.isArray(value) ? value.join(', ') || 'None' : String(value)}</dd></div>)}</dl>
     {['PlanPair', 'TrainingPlan', 'NutritionPlan'].includes(current.subject_kind) && <>
-      {current.context.training != null && <><h3>Training candidate</h3><pre>{JSON.stringify(current.context.training, null, 2)}</pre></>}
-      {current.context.nutrition != null && <><h3>Nutrition candidate</h3><pre>{JSON.stringify(current.context.nutrition, null, 2)}</pre></>}
-      <h3>Validation</h3><pre>{JSON.stringify(current.context.validation, null, 2)}</pre>
+      {current.context.training != null && <><h3>Training candidate</h3><PlanContent content={current.context.training as Record<string,unknown>} labels={current.context.catalogue_labels||{}}/></>}
+      {current.context.nutrition != null && <><h3>Nutrition candidate</h3><PlanContent content={current.context.nutrition as Record<string,unknown>} labels={current.context.catalogue_labels||{}}/></>}
+      <details><summary>Review validation evidence</summary><pre>{JSON.stringify(current.context.validation, null, 2)}</pre></details>
     </>}
     {['GroupConfiguration', 'AgentRelease'].includes(current.subject_kind) && <>
       <h3>Current configuration</h3><pre>{JSON.stringify(current.context.baseline, null, 2)}</pre>

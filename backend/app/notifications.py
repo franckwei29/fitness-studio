@@ -13,11 +13,32 @@ from app.security import principal
 router = APIRouter(prefix="/api/me/notifications")
 
 
+def notification_target(db, row):
+    if row.kind == "Workflow" and row.business_key.startswith("workflow:"):
+        from app.models import Request, Workflow
+
+        flow = db.get(Workflow, row.business_key.split(":")[1])
+        if flow and flow.user_id == row.user_id:
+            request = db.get(Request, flow.request_id)
+            target = (
+                "pair:" + flow.pair_id
+                if flow.stage == "FinalReview" and flow.pair_id
+                else "draft:"
+                + (
+                    flow.training_id
+                    if flow.stage == "TrainingDiscussion"
+                    else flow.nutrition_id or flow.training_id or ""
+                )
+            )
+            return {"page": "plans", "section": target, "conversation": request.session_id}
+    return None
+
+
 @router.get("")
 def notifications(user: User = Depends(principal)):
     with transaction() as db:
         return [
-            view(row)
+            view(row) | {"target": notification_target(db, row)}
             for row in db.scalars(
                 select(Notification)
                 .where(Notification.user_id == user.id)

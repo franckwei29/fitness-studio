@@ -106,6 +106,9 @@ def complete_admission(db, row, actor_id):
             },
         )
     )
+    from app.workflows import profile_changed
+
+    profile_changed(db, member)
     return member
 
 

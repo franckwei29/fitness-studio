@@ -158,6 +158,12 @@ def approval_current(db, row):
             if not plan or plan.status != "Validated" or plan_fingerprint(plan) != row.fingerprint:
                 return False
             plans = [plan]
+        from app.workflows import find
+
+        source = db.get(Request, plans[-1].request_id)
+        flow = find(db, source) if source else None
+        if flow and flow.stage != "OwnerReview":
+            return False
         member = db.get(Member, plans[0].member_id)
         group = db.get(MemberGroup, member.group_id) if member else None
         return bool(

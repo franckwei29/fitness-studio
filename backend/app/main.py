@@ -34,6 +34,7 @@ from app.substitution import router as substitution_router
 from app.trace_export import router as trace_export_router
 from app.usage_admin import router as usage_router
 from app.version_admin import router as version_router
+from app.workflows import router as workflows_router
 
 app = FastAPI(title="Fitness Studio", version="0.1.0")
 app.add_exception_handler(StarletteHTTPException, access_exception_handler)
@@ -166,3 +167,5 @@ app.include_router(experience_router)
 
 
 app.include_router(owner_updates_router)
+
+app.include_router(workflows_router)

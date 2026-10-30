@@ -80,7 +80,12 @@ def my_plans(user: User = Depends(principal)):
                 )
             )
         )
+        from app.workflows import find
+        from app.workflows import view as workflow_view
+
+        related = list(db.scalars(select(Request).where(Request.id.in_({p.request_id for p in plans}))))
         return {
+            "workflows": {r.id: workflow_view(db, f) for r in related if (f := find(db, r))},
             "member_status": member.status,
             "catalogue_labels": {
                 row.id: row.name for row in [*food_catalogue().values(), *exercise_catalogue().values()]
@@ -175,3 +180,18 @@ def confirm_nutrition(identifier: str, body: TrainingConfirmation, user: User = 
         )
     except ActivationConflict as exc:
         raise HTTPException(409, str(exc)) from None
+
+
+@router.get("/me/plan-drafts/{identifier}")
+def draft_detail(identifier: str, user: User = Depends(principal)):
+    data = my_plans(user)
+    target = next((p for p in data["plans"] if p["id"] == identifier), None)
+    if not target:
+        raise HTTPException(404, "This plan is unavailable. Open My plans to find your latest draft.")
+    return {
+        "plan": target,
+        "plans": data["plans"],
+        "labels": data["catalogue_labels"],
+        "workflow": data.get("workflows", {}).get(target["request_id"]),
+        "pairs": [p for p in data["pairs"] if identifier in {p["training_id"], p["nutrition_id"]}],
+    }

@@ -51,10 +51,12 @@ def generate(claim, instruction, context, output_type, max_output_tokens=2048):
             instruction += "\n" + AUTO_INSTRUCTION
         if request.kind == "Chat" and item.role in {"Coach", "Nutrition"}:
             instruction += CHAT_TASK_INSTRUCTION
-        if request.payload.get("training_first") and item.role == "Nutrition":
+        if item.role == "Nutrition" and output_type.__name__ == "MealCompatibilityReview":
             from app.nutrition_runtime import REVIEW_INSTRUCTION
 
             instruction += "\n" + REVIEW_INSTRUCTION
+        if request.payload.get("progressive"):
+            instruction += "\nThis is a staged draft discussion. Follow member_draft_feedback using draft_to_revise as the starting point. Do not claim another specialist has started or that anything is activated. Respect the original goal and confirmed constraints."
         price = price_for(model)
         provider = model_info(model)["provider"]
         payload = build_payload(model, instruction, context, output_type, max_output_tokens, version=version)

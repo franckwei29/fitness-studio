@@ -39,7 +39,7 @@ test('saved request updates from delay to completion without another member subm
  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
  await expect(page.getByText('Your draft plans are ready.',{exact:true})).toBeVisible();
  await expect(page.getByText('Temporarily delayed',{exact:true})).toHaveCount(0);
- await expect(page.locator('.planning-task')).toHaveCount(1);
+ await expect(page.locator('.planning-task')).toHaveCount(0); // Completion is in the newest message; no duplicate task card.
  await expect(page.getByRole('button',{name:'Review draft plans',exact:true})).toBeVisible();
  expect(submissions).toBe(0);
  expect(errors).toEqual([]);

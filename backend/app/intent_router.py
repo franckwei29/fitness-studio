@@ -58,6 +58,10 @@ Intake first so those facts are reviewed before any new planning.
 If the user wants to keep meals unchanged, set keep_meals true. If this message answers
 an earlier clarification, put the resolved original goal and the new answer in task_goal
 without widening scope; otherwise leave task_goal null.
+When draft_context is present, use its exact current draft for explanations. Explicit
+requests to adjust that draft remain Training or Nutrition within the SAME update;
+ordinary questions about it remain Answer. Never claim changes were saved from an Answer.
+An ambiguous OK is Clarify; final activation must use the displayed confirmation control.
 """
 )
 
@@ -200,12 +204,46 @@ def apply_intent(db, request, item, decision):
             .limit(1)
         )
         if conflict:
+            from app.workflows import FlowAction, find, perform
+
+            active_flow = find(db, conflict)
+            if (
+                active_flow
+                and conflict.session_id == request.session_id
+                and active_flow.stage in {"TrainingDiscussion", "MealDiscussion", "FinalReview"}
+            ):
+                domain = "training" if decision.intent in {"Training", "Combined"} else "meals"
+                body = FlowAction(
+                    action="revise_" + domain,
+                    expected_revision=active_flow.revision,
+                    operation_key=request.id,
+                    feedback=request.payload["content"],
+                )
+                from fastapi import HTTPException
+
+                from app.models import User
+
+                try:
+                    with db.begin_nested():
+                        perform(db, active_flow, conflict, body, db.get(User, request.user_id))
+                except HTTPException as exc:
+                    publish(
+                        db, request, item, str(exc.detail), [{"type": "Activity", "request_id": conflict.id}]
+                    )
+                    return
+                publish(
+                    db,
+                    request,
+                    item,
+                    "Your feedback is part of the current draft. The specialist will revise it here.",
+                )
+                return
             publish(
                 db,
                 request,
                 item,
                 "Another plan update is still pending. Keep it, or cancel it in Activity before starting a replacement.",
-                [{"type": "Activity"}],
+                [{"type": "Activity", "request_id": conflict.id}],
             )
             return
         current = db.get(CurrentPlans, member.id)
@@ -242,6 +280,7 @@ def apply_intent(db, request, item, decision):
         }
     elif decision.intent == "Intake":
         kind, role = "Intake", "Intake"
+        session.active_role = "Intake"
     else:
         publish(db, request, item, text, cards)
         if decision.intent == "Consult":
@@ -261,11 +300,15 @@ def apply_intent(db, request, item, decision):
             input_versions={},
         )
     )
-    # The stable host is never overwritten by a background specialist.
+    if planning:
+        from app.workflows import start
+
+        start(db, request, role)
+    # Informational tasks retain their current host.
     db.add(
         Message(
             session_id=session.id,
-            sender=request.payload.get("speaker", session.active_role),
+            sender=role,
             content="I’ll prepare a draft for your review. Your current plans will stay in use."
             if planning
             else "Front Desk will help prepare your details for confirmation.",
@@ -308,6 +351,8 @@ def run_auto(claim):
                 }
                 for r in reversed(previous)
             ]
+            from app.workflows import discussion_context
+
             context = {
                 "agent_version_id": version.id,
                 "message": request.payload["content"],
@@ -316,6 +361,9 @@ def run_auto(claim):
                 "admitted": bool(member and member.status == "Accepted"),
                 "intake_status": assessment.status if assessment else None,
                 "current_plans": plan_summary(db, request.user_id),
+                "draft_context": discussion_context(
+                    db, session_id=request.session_id, user_id=request.user_id
+                ),
                 "pending_updates": [
                     {
                         "kind": r.kind,
@@ -472,6 +520,8 @@ def submit_auto(db, session, body, user):
                 or source.result.get("continued")
             ):
                 raise HTTPException(409, "This review is no longer available. Open the latest plan draft.")
+            if source.payload.get("progressive"):
+                raise HTTPException(409, "Use the current workflow card to revise this draft.")
             from app.models import PlanPair, PlanVersion
 
             pair = db.get(PlanPair, source.result.get("pair_id"))

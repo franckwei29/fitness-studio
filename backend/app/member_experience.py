@@ -210,7 +210,33 @@ def activity_view(db, request):
         detail = "Preparation is continuing from where it stopped. You don’t need to submit again."
     if plans and request.status in {"Waiting", "Stopped"} and request.kind == "Combined":
         detail = "Only part of your routine is ready. " + detail
+    from app.workflows import find
+    from app.workflows import view as workflow_view
+
+    flow = find(db, request)
+    flow_data = workflow_view(db, flow) if flow else None
+    if flow_data and request.status not in {"Completed", "Stopped", "Cancelled", "Waiting", "Running"}:
+        status, detail, needs = {
+            "TrainingDiscussion": (
+                "Review training",
+                "Discuss the training draft with Coach before approving its direction.",
+                True,
+            ),
+            "MealImpact": (
+                "Review meal impact",
+                "Choose a direction after reviewing the specific meal impact.",
+                True,
+            ),
+            "MealDiscussion": (
+                "Review meals",
+                "Discuss the meal draft before approving its direction.",
+                True,
+            ),
+            "OwnerReview": ("Studio review", "Your draft is waiting for studio review.", False),
+            "FinalReview": ("Ready to confirm", "Review the final changes before activation.", True),
+        }.get(flow_data["stage"], (status, detail, needs))
     return {
+        "workflow": flow_data,
         "id": request.id,
         "title": title,
         "status": status,

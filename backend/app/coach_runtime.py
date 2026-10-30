@@ -173,7 +173,11 @@ def run_coach(claim):
                 coordinated = request.kind == "Combined" or (
                     request.kind == "CycleReview" and request.payload.get("coordinate_nutrition")
                 )
-                if not coordinated and group.configuration.get("review_required"):
+                if (
+                    not request.payload.get("progressive")
+                    and not coordinated
+                    and group.configuration.get("review_required")
+                ):
                     db.add(
                         Approval(
                             subject_kind="TrainingPlan",
@@ -188,7 +192,7 @@ def run_coach(claim):
                 text = "Your training candidate is ready for review. It is not active yet."
                 if request.kind == "CycleReview":
                     result["status"] = "AwaitingConfirmation"
-                if coordinated:
+                if coordinated and not request.payload.get("progressive"):
                     db.add(
                         WorkItem(
                             request_id=request.id,
@@ -220,9 +224,17 @@ def run_coach(claim):
                     session_id=request.session_id,
                     sender="Coach",
                     content=text,
-                    cards=[{"type": "TrainingCandidate", "plan_id": plan.id, "validation": validation}],
+                    cards=[]
+                    if request.payload.get("progressive")
+                    else [{"type": "TrainingCandidate", "plan_id": plan.id, "validation": validation}],
                 )
             )
+            if validation["passed"] and request.payload.get("progressive"):
+                from app.workflows import find, training_ready
+
+                training_ready(db, find(db, request), request, plan)
+                result["status"] = request.status
+                request.result = result
             event(db, request, "training_candidate", **result)
             return {"outcome": result}
 

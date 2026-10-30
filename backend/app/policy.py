@@ -110,6 +110,10 @@ def execution_context(db, item, request):
     from app.recovery_prerequisites import verify_prerequisites
 
     verify_prerequisites(db, request.payload.get("recovery_prerequisites", []))
+    if request.payload.get("progressive"):
+        from app.workflows import execution_gate
+
+        execution_gate(db, item, request)
     role = item.role
     if role not in PROFILE_FIELDS:
         raise PolicyDenied("The assigned role is invalid.")

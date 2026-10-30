@@ -28,7 +28,7 @@ test('member registers, confirms intake, and retains a conversation',async({page
   await expect(page.getByText('我想每周训练三天',{exact:true})).toBeVisible();
   await expect(page.getByText('Your update will start when assistance is available.')).toBeVisible();
   await page.reload();
-  await page.getByRole('button',{name:'Your fitness journey'}).click();
+  await page.getByRole('button',{name:'Your fitness journey',exact:true}).click();
   await expect(page.getByText('我想每周训练三天',{exact:true})).toBeVisible();
   expect(errors).toEqual([]);
 });

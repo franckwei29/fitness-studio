@@ -133,6 +133,9 @@ def request_cycle(body: CycleRequest, user: User = Depends(principal)):
                 },
             )
         )
+        from app.workflows import start
+
+        start(db, request, "Coach")
         result = {
             "request_id": request.id,
             "session_id": session.id,

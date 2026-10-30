@@ -43,9 +43,28 @@ def verify_cycle_activation(db, request, member_id):
 
 
 def complete_cycle(request, result):
-    if request.kind == "CycleReview" or request.payload.get("training_first"):
+    if (
+        request.kind == "CycleReview"
+        or request.payload.get("training_first")
+        or request.payload.get("progressive")
+    ):
         request.status = "Completed"
         request.result = (request.result or {}) | {"status": "Completed", "activation": result}
+        from sqlalchemy.orm import object_session
+
+        from app.workflows import find, set_stage
+
+        db = object_session(request)
+        flow = find(db, request)
+        if flow:
+            set_stage(
+                db,
+                flow,
+                request,
+                "Completed",
+                "Coach" if not flow.nutrition_id else "Nutrition",
+                "Your updated routine is now in use.",
+            )
 
 
 def plan_fingerprint(plan):
@@ -107,6 +126,9 @@ def activate_pair(member_id, pair_id, request_id, actor_id, expected_current_ver
         current = db.scalar(select(CurrentPlans).where(CurrentPlans.member_id == member_id).with_for_update())
         if not current or current.version != expected_current_version:
             raise ActivationConflict("The current plans changed. Review the latest pair.")
+        from app.workflows import activation_gate
+
+        activation_gate(db, request)
         verify_cycle_activation(db, request, member_id)
         if request.payload.get("training_first"):
             from app.planning_context import verify_planning_baseline
@@ -216,6 +238,9 @@ def activate_training(member_id, plan_id, actor_id, expected_current_version, op
         current = db.scalar(select(CurrentPlans).where(CurrentPlans.member_id == member_id).with_for_update())
         if not current or current.version != expected_current_version:
             raise ActivationConflict("The current plan changed. Review the latest version.")
+        from app.workflows import activation_gate
+
+        activation_gate(db, request)
         verify_cycle_activation(db, request, member_id)
         if request.kind == "CycleReview" and request.payload.get("coordinate_nutrition"):
             raise ActivationConflict("This cycle review requires a compatible nutrition pair.")
@@ -309,6 +334,9 @@ def activate_nutrition(member_id, plan_id, actor_id, expected_current_version, o
         current = db.scalar(select(CurrentPlans).where(CurrentPlans.member_id == member_id).with_for_update())
         if not current or current.version != expected_current_version:
             raise ActivationConflict("The current plans changed. Review the latest version.")
+        from app.workflows import activation_gate
+
+        activation_gate(db, request)
         verify_cycle_activation(db, request, member_id)
         if (
             current.training_id
@@ -349,12 +377,16 @@ def activate_nutrition(member_id, plan_id, actor_id, expected_current_version, o
             )
             if not approval:
                 raise ActivationConflict("A current nutrition approval is required.")
+        from app.workflows import activation_gate
+
+        activation_gate(db, request)
         current.nutrition_id = plan.id
         current.training_id = current.pair_id = None
         current.version += 1
         plan.status = "Active"
         result = {"nutrition_id": plan.id, "current_version": current.version, "status": "Committed"}
         db.add(Activation(operation_key=key, member_id=member.id, request_id=request.id, result=result))
+        complete_cycle(request, result)
         request.status = "Completed"
         request.result = (request.result or {}) | {"status": "Completed", "activation": result}
         db.add(

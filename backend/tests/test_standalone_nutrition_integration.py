@@ -4,6 +4,7 @@ from copy import deepcopy
 from uuid import uuid4
 
 import pytest
+from progressive_test_support import run_with_member_approvals as run_once
 from sqlalchemy import select
 from test_admission_integration import facts, submit
 from test_admission_integration import member as member_fixture
@@ -12,7 +13,6 @@ from test_admission_integration import owner_client as owner_fixture
 from app.bootstrap import DEFAULT_CONFIGURATION
 from app.database import transaction
 from app.models import Member, MemberGroup, ModelCall, Request
-from app.worker import run_once
 
 member = member_fixture
 owner_client = owner_fixture
@@ -59,6 +59,8 @@ def test_independent_nutrition_lifecycle(
             content = deepcopy(context["baseline_plan"])
             content.pop("nutrient_totals", None)
             content["meals"][0]["portions"][0]["grams"] = "160"
+        if output_type.__name__ == "MealCompatibilityReview":
+            content={"decision":"SuggestChanges","explanation":"Specific synthetic compatibility review.","proposal":content}
         output = output_type.model_validate(content)
         with transaction() as db:
             request = db.get(Request, claim.request_id)

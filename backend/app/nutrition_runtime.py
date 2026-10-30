@@ -57,7 +57,7 @@ that exact version and do not claim the pair is already active.
 
 
 class MealCompatibilityReview(StrictModel):
-    decision: Literal["Retain", "SuggestChanges"]
+    decision: Literal["Retain", "SuggestChanges", "ReviseTraining"]
     explanation: str = Field(min_length=1, max_length=3000)
     proposal: NutritionProposal
 
@@ -70,11 +70,14 @@ For Retain, the application preserves existing meals exactly. For SuggestChanges
 and explain what changes and why. This is a suggestion only, never permission to activate anything.
 If keep_meals is true, assess the revised training under that constraint. If it still cannot be supported, explain why;
 do not pretend the conflict has been solved. Never claim clinically verified energy adequacy.
+For a Nutrition-led primary_goal, propose the requested meal changes against the current training.
+Use SuggestChanges when training can stay unchanged; use ReviseTraining only for a concrete conflict requiring member choice.
+Do not revise training yourself. Retain is for a training-led update with existing meals that can be copied exactly.
 """
 
 
 def reviewed_proposal(review, previous, training_id):
-    if review.decision == "Retain":
+    if review.decision == "Retain" and previous:
         content = deepcopy(previous["content"])
         content.pop("nutrient_totals", None)
         content["training_version_id"] = training_id
@@ -129,6 +132,8 @@ def run_nutrition(claim):
                 "context": {
                     "profile": authorized["profile"],
                     "training_first": request.payload.get("training_first", False),
+                    "progressive": request.payload.get("progressive", False),
+                    "primary_goal": request.kind,
                     "keep_meals": request.payload.get("keep_meals", False),
                     "foods": foods,
                     "training_version_id": training.id if training else None,
@@ -157,11 +162,13 @@ def run_nutrition(claim):
         if retained:
             return {"candidate": {"proposal": retained["proposal"], "call_id": None, "retained": retained}}
         context = state["context"]
-        if context.get("training_first") and context.get("previous_plan"):
+        if (context.get("training_first") and context.get("previous_plan")) or (
+            context.get("progressive") and context.get("training") and not context.get("substitution")
+        ):
             review, call_id = generate(
                 claim, INSTRUCTION + REVIEW_INSTRUCTION, context, MealCompatibilityReview, 4096
             )
-            output = reviewed_proposal(review, context["previous_plan"], context["training_version_id"])
+            output = reviewed_proposal(review, context.get("previous_plan"), context["training_version_id"])
             return {
                 "candidate": {
                     "proposal": output.model_dump(mode="json"),
@@ -285,7 +292,7 @@ def run_nutrition(claim):
                 db.add(pair)
                 db.flush()
                 group = db.get(MemberGroup, member.group_id)
-                if group.configuration.get("review_required"):
+                if group.configuration.get("review_required") and not request.payload.get("progressive"):
                     db.add(
                         Approval(
                             subject_kind="PlanPair",
@@ -303,7 +310,7 @@ def run_nutrition(claim):
                     )
             if validation["passed"] and not training:
                 group = db.get(MemberGroup, member.group_id)
-                if group.configuration.get("review_required"):
+                if group.configuration.get("review_required") and not request.payload.get("progressive"):
                     db.add(
                         Approval(
                             subject_kind="NutritionPlan",
@@ -332,6 +339,11 @@ def run_nutrition(claim):
                 result.update(queue_correction(db, item, request, plan))
                 request.status = result["status"]
             item.lease_until = None
+            if request.payload.get("progressive"):
+                result["training_impact"] = (
+                    state["candidate"].get("meal_review", {}).get("decision") == "ReviseTraining"
+                )
+                result["meal_review"] = state["candidate"].get("meal_review", {})
             if request.payload.get("training_first") and validation["passed"]:
                 previous = state["context"].get("previous_plan")
                 result["meal_changes"] = bool(
@@ -369,7 +381,9 @@ def run_nutrition(claim):
                         if result["status"] == "Queued"
                         else "We couldn’t finish a suitable meal draft. Your current routine is unchanged. Check Activity for the next step."
                     ),
-                    cards=[
+                    cards=[]
+                    if request.payload.get("progressive")
+                    else [
                         {
                             "type": "TrainingMealReview"
                             if pair and request.payload.get("training_first")
@@ -384,6 +398,12 @@ def run_nutrition(claim):
                     ],
                 )
             )
+            if validation["passed"] and request.payload.get("progressive"):
+                from app.workflows import find, meals_ready
+
+                meals_ready(db, find(db, request), request, plan, pair, result.get("meal_changes", True))
+                result["status"] = request.status
+                request.result = result
             event(db, request, "nutrition_candidate", **result)
             return {"outcome": result}
 

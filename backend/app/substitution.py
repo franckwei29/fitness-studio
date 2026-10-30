@@ -141,6 +141,9 @@ def request_substitution(body: SubstitutionRequest, user: User = Depends(princip
                 },
             )
         )
+        from app.workflows import start
+
+        start(db, request, "Nutrition")
         result = {"request_id": request.id, "session_id": session.id, "status": "Queued"}
         db.add(
             IdempotencyRecord(

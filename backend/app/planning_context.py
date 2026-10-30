@@ -34,6 +34,17 @@ def revision_context(db, request, authorized, role):
     plan = db.get(PlanVersion, identifier) if identifier else None
     if plan and (plan.member_id != authorized["member_id"] or plan.fingerprint != plan_fingerprint(plan)):
         raise PolicyDenied("The previous plan contents no longer match their recorded version.")
+    preferred = (
+        db.get(PlanVersion, request.payload.get("preferred_meal_id"))
+        if request.payload.get("preferred_meal_id")
+        else None
+    )
+    if role == "Nutrition" and preferred:
+        if preferred.member_id != authorized["member_id"] or preferred.fingerprint != plan_fingerprint(
+            preferred
+        ):
+            raise PolicyDenied("The meal draft selected for retention changed.")
+        plan = preferred
     kind = "TrainingFeedback" if role == "Coach" else "NutritionFeedback"
     matching_plan = and_(
         Observation.kind == kind,
@@ -63,7 +74,14 @@ def revision_context(db, request, authorized, role):
         if identifier
         else []
     )
+    from app.workflows import find
+
+    flow = find(db, request) if getattr(request, "id", None) else None
+    draft_id = (flow.training_id if role == "Coach" else flow.nutrition_id) if flow else None
+    draft = db.get(PlanVersion, draft_id) if draft_id else None
     return {
+        "draft_to_revise": {"id": draft.id, "content": draft.content} if draft else None,
+        "member_draft_feedback": [f["text"] for f in flow.feedback if f["role"] == role] if flow else [],
         "previous_plan": None
         if not plan
         else {
@@ -75,9 +93,13 @@ def revision_context(db, request, authorized, role):
         "meal_constraint": (
             {
                 "instruction": "Keep the existing meals unchanged. Adapt training to this constraint; explain any unmet training goal without inventing medical energy requirements.",
-                "meals": db.get(PlanVersion, current.nutrition_id).content,
+                "meals": preferred.content
+                if preferred
+                else db.get(PlanVersion, current.nutrition_id).content,
             }
-            if request.payload.get("keep_meals") and current and current.nutrition_id
+            if (request.payload.get("keep_meals") or preferred)
+            and current
+            and (current.nutrition_id or preferred)
             else None
         ),
         "confirmed_feedback": [{"id": row.id, "kind": row.kind, "content": row.content} for row in feedback],

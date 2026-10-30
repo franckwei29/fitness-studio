@@ -371,3 +371,36 @@ class OwnerUpdate(Record, Base):
     state: Mapped[str] = mapped_column(String(30), default="Needs action")
     read_at: Mapped[datetime | None] = mapped_column(DateTime)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class Workflow(Record, Base):
+    __tablename__ = "workflows"
+    request_id: Mapped[str] = mapped_column(ForeignKey("requests.id"), unique=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    stage: Mapped[str] = mapped_column(String(40), default="GeneratingTraining")
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    training_id: Mapped[str | None] = mapped_column(String(36))
+    nutrition_id: Mapped[str | None] = mapped_column(String(36))
+    pair_id: Mapped[str | None] = mapped_column(String(36))
+    training_endorsement: Mapped[dict | None] = mapped_column(JSON)
+    nutrition_endorsement: Mapped[dict | None] = mapped_column(JSON)
+    baseline: Mapped[dict] = mapped_column(JSON, default=dict)
+    feedback: Mapped[list] = mapped_column(JSON, default=list)
+
+
+class ConversationEntry(Base):
+    __tablename__ = "conversation_entries"
+    sequence: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(ForeignKey("chat_sessions.id"), index=True)
+    message_id: Mapped[str] = mapped_column(ForeignKey("messages.id"), unique=True)
+
+
+# Assign a durable conversation order in the same transaction as each message.
+from sqlalchemy import event as sa_event  # noqa: E402
+
+
+@sa_event.listens_for(Message, "after_insert")
+def index_conversation_message(mapper, connection, target):
+    connection.execute(
+        ConversationEntry.__table__.insert().values(session_id=target.session_id, message_id=target.id)
+    )

@@ -128,7 +128,7 @@ def test_read_or_question_never_generates_or_switches_role(member, monkeypatch, 
         assert len(list(db.scalars(select(WorkItem).where(WorkItem.request_id == result["request_id"])))) == 1
 
 
-def test_explicit_generation_delegates_without_changing_host(member, monkeypatch):
+def test_explicit_generation_delegates_and_updates_host(member, monkeypatch):
     submit(member, facts())
     synthetic(monkeypatch, IntentReply(intent="Combined", reply="Prepare both plans."))
     conversation = member.post("/api/conversations").json()["id"]
@@ -137,7 +137,7 @@ def test_explicit_generation_delegates_without_changing_host(member, monkeypatch
     with transaction() as db:
         request = db.get(Request, result["request_id"])
         assert request.kind == "Combined" and request.status == "Queued"
-        assert db.get(ChatSession, conversation).active_role == "Intake"
+        assert db.get(ChatSession, conversation).active_role == "Coach"
         works = list(db.scalars(select(WorkItem).where(WorkItem.request_id == request.id)))
         assert {(w.role, w.status) for w in works} == {("Intake", "Completed"), ("Coach", "Queued")}
     assert member.get("/api/me/activity").json()[0]["status"] == "Waiting to start"

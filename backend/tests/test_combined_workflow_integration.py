@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from progressive_test_support import run_with_member_approvals as run_once
 from sqlalchemy import select
 
 from app.bootstrap import bootstrap
@@ -12,7 +13,6 @@ from app.database import transaction
 from app.main import app
 from app.models import ModelCall, Request
 from app.rules import EXCLUSIONS
-from app.worker import run_once
 
 
 @pytest.mark.parametrize(
@@ -116,6 +116,12 @@ def test_combined_candidate_to_atomic_activation(monkeypatch, first_invalid):
             first_invalid == "Both" and len(calls) == 4
         ):
             assert context["correction"]["violations"] == ["Unknown food catalogue entry: unknown-food."]
+        if output_type.__name__ == "MealCompatibilityReview":
+            content = {
+                "decision": "SuggestChanges",
+                "explanation": "Specific synthetic compatibility review.",
+                "proposal": content,
+            }
         output = output_type.model_validate(content)
         with transaction() as db:
             request = db.get(Request, claim.request_id)
@@ -218,7 +224,7 @@ def test_combined_candidate_to_atomic_activation(monkeypatch, first_invalid):
             assert run_once(request_id)
         assert calls == expected_initial
         status = client.get(f"/api/requests/{request_id}").json()
-        assert status["status"] == "Completed", status
+        assert status["status"] == "AwaitingConfirmation", status
         plans = client.get("/api/me/plans").json()
         assert len(plans["plans"]) == len(expected_initial)
         assert plans["current"]["training_id"] is None
@@ -252,7 +258,7 @@ def test_combined_candidate_to_atomic_activation(monkeypatch, first_invalid):
         replacement_id = queued.json()["request_id"]
         assert run_once(replacement_id)
         replacement = client.get(f"/api/requests/{replacement_id}").json()
-        assert replacement["status"] == "Completed", replacement
+        assert replacement["status"] == "AwaitingConfirmation", replacement
         plans = client.get("/api/me/plans").json()
         assert plans["current"]["nutrition_id"] == current["nutrition_id"]
         nutrition = next(
@@ -342,19 +348,23 @@ def test_combined_candidate_to_atomic_activation(monkeypatch, first_invalid):
                 "content": "Revise my current routine to be easier to follow.",
             },
         )
-        assert direct.status_code == 202
-        direct_id = direct.json()["request_id"]
-        direct_status = client.get(f"/api/requests/{direct_id}").json()
-        assert direct_status["kind"] == "Combined"
-        assert direct_status["payload"]["requested_purpose"] == "Training"
-        assert direct_status["payload"]["plan_baseline"]["version"] == 3
+        assert direct.status_code == 409, "Competing updates must not silently overwrite a pending routine"
         latest = client.post(
             f"/api/me/plans/pairs/{changed['result']['pair_id']}/confirm",
             json={"request_id": progression_id, "expected_current_version": 3, "operation_key": str(uuid4())},
         )
         assert latest.status_code == 200, latest.text
-        assert not run_once(direct_id)
-        assert client.get(f"/api/requests/{direct_id}").json()["status"] == "Waiting"
+        follow = client.post(
+            f"/api/conversations/{session['id']}/messages",
+            json={
+                "key": str(uuid4()),
+                "purpose": "Training",
+                "content": "Revise my current routine to be easier to follow.",
+            },
+        )
+        assert follow.status_code == 202, follow.text
+        new_request = client.get(f"/api/requests/{follow.json()['request_id']}").json()
+        assert new_request["payload"]["plan_baseline"]["version"] == 4
         assert calls == expected_initial + [
             "Nutrition",
             "Coach",

@@ -1,6 +1,6 @@
 /** Durable SSE replay. EventSource reconnects with Last-Event-ID after each batch. */
 export const requestEventTypes = [
-  'queued', 'processing', 'waiting', 'stopped', 'recovery', 'recovery_queued',
+  'workflow_changed', 'queued', 'processing', 'waiting', 'stopped', 'recovery', 'recovery_queued',
   'training_candidate', 'nutrition_candidate', 'completed', 'evaluation_case_completed',
   'plan_reviewed', 'policy_changed', 'correction_queued', 'expired', 'cancelled',
 ];
