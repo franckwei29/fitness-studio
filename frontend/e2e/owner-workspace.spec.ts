@@ -13,7 +13,8 @@ async function ownerWorkspace(page: Page) {
     const url = new URL(route.request().url());
     const path = url.pathname;
     let data: unknown;
-    if (path === '/api/auth/me') data = { user: { id: 'owner', display_name: 'Studio Owner', role: 'Owner' }, csrf_token: 'test' };
+    if(new URL(route.request().url()).pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
+  if (path === '/api/auth/me') data = { user: { id: 'owner', display_name: 'Studio Owner', role: 'Owner' }, csrf_token: 'test' };
     else if (path === '/api/owner/groups') data = groups;
     else if (path === '/api/conversations') {
       if (route.request().method() === 'POST') { state.conversationCreates++; data = conversation; }
@@ -84,7 +85,8 @@ test('member opening an owner deep link cannot load business records', async ({ 
   await page.route('**/api/**', async route => {
     const path = new URL(route.request().url()).pathname;
     if (path.startsWith('/api/owner/')) ownerReads.push(path);
-    if (path === '/api/auth/me') await route.fulfill({ json: { user: { id: 'member', display_name: 'Member', role: 'Member' }, csrf_token: 'test' } });
+    if(new URL(route.request().url()).pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
+  if (path === '/api/auth/me') await route.fulfill({ json: { user: { id: 'member', display_name: 'Member', role: 'Member' }, csrf_token: 'test' } });
     else if (path === '/api/conversations') await route.fulfill({ json: [] });
     else await route.fulfill({ status: 403, json: { detail: 'Owner access is required.' } });
   });
@@ -102,7 +104,8 @@ async function actionableWorkspace(page: Page) {
   const receipts = new Set<string>();
   await page.route('**/api/**', async route => {
     const url = new URL(route.request().url()), path = url.pathname; let data: unknown;
-    if (path === '/api/auth/me') data = { user: { id: 'owner', display_name: 'Studio Owner', role: 'Owner' }, csrf_token: 'test' };
+    if(new URL(route.request().url()).pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
+  if (path === '/api/auth/me') data = { user: { id: 'owner', display_name: 'Studio Owner', role: 'Owner' }, csrf_token: 'test' };
     else if (path === '/api/owner/groups') data = [{ id: 'default', name: 'Default', version: 1 }];
     else if (path === '/api/conversations') data = [conversation];
     else if (path === '/api/conversations/owner-cards') data = { conversation, messages, requests: [] };
@@ -154,9 +157,11 @@ test('budget preview survives exact review navigation and changes nothing before
   const card = page.locator('[data-record-id="budget-one"]'); await card.getByRole('button', { name: 'Adjust budget' }).click();
   await card.getByRole('spinbutton', { name: 'Total limit (USD)' }).fill('2.5'); await card.getByRole('textbox', { name: 'Reason', exact: true }).fill('Allowance for the next reviewed comparison.');
   await expect(card.locator('.owner-before-after')).toContainText('$1.00'); await expect(card.locator('.owner-before-after')).toContainText('$2.50'); expect(state.budgetWrites).toHaveLength(0);
+  await page.getByRole('button', {name:'Close dialog',exact:true}).click();
   await page.locator('[data-record-id="approval-one"]').getByRole('button', { name: 'Open review details' }).click();
   await expect(page).toHaveURL(/#\/owner\/approvals\/approval-one\?conversation=owner-cards/); await expect(page.getByRole('heading', { name: 'Intake Assessment' })).toBeVisible();
   await page.getByRole('button', { name: 'Back to conversation' }).click();
+  await card.getByRole('button', {name:'Adjust budget'}).click();
   await expect(card.getByRole('spinbutton', { name: 'Total limit (USD)' })).toHaveValue('2.5'); await expect(card.getByRole('textbox', { name: 'Reason', exact: true })).toHaveValue('Allowance for the next reviewed comparison.');
   await card.getByRole('button', { name: 'Confirm budget change' }).click(); await expect(page.getByText('Budget limit updated: Studio budget.')).toBeVisible();
   expect(state.budgetWrites).toHaveLength(1); expect(state.budgetWrites[0]).toMatchObject({ scope_key: 'global', limit_micros: 2500000, expected_fingerprint: 'budget-v1' });
@@ -212,7 +217,8 @@ test('slow initial history cannot replace a newly created conversation or its dr
   const messages: any[] = [], submitted: string[] = [];
   await page.route('**/api/**', async route => {
     const path = new URL(route.request().url()).pathname; let data: unknown;
-    if (path === '/api/auth/me') data = { user: { id: 'owner', display_name: 'Studio Owner', role: 'Owner' }, csrf_token: 'test' };
+    if(new URL(route.request().url()).pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
+  if (path === '/api/auth/me') data = { user: { id: 'owner', display_name: 'Studio Owner', role: 'Owner' }, csrf_token: 'test' };
     else if (path === '/api/owner/groups') data = [];
     else if (path === '/api/conversations') {
       if (route.request().method() === 'POST') { creationRequested = true; await createGate; data = fresh; }

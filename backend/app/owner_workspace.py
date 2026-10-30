@@ -71,7 +71,7 @@ TITLES = {
     "usage": "AI usage",
 }
 SUMMARIES = {
-    "attention": "Owner decisions and member confirmations are listed separately. Open a card to see the exact next step.",
+    "attention": "The same decisions appear in Updates. Open a card to see the exact next step.",
     "approvals": "Review the submitted evidence before recording a decision. Approval and applying a change are separate steps.",
     "members": "Choose a member to inspect their status or preview a group change.",
     "budgets": "Review limits, spend and reserved funds. Changing a limit does not change the model-call allowances.",
@@ -331,6 +331,8 @@ def entry_item(identifier, category, title, description, page, section):
 
 
 def workspace_items(db, area, user):
+    if area == "notifications":
+        return workspace_items(db, "attention", user)
     if area == "attention":
         items = [
             approval_item(db, row)
@@ -357,8 +359,32 @@ def workspace_items(db, area, user):
             for row in db.scalars(
                 select(Incident).where(Incident.status != "Closed").order_by(Incident.created_at)
             )
+            if row.evidence.get("reason")
+            not in {"BudgetRequired", "HourlyCallLimit", "AccountDailyCallLimit", "ModelDispatchUnavailable"}
         ]
+        for run in db.scalars(
+            select(EvaluationRun).where(
+                EvaluationRun.status.in_(["AwaitingReview", "FailedChecks", "Reviewed", "Incomplete"])
+            )
+        ):
+            items.append(
+                card(
+                    run.id,
+                    "Evaluation",
+                    f"{run.role} evaluation · {run.status}",
+                    run.status,
+                    "Open the comparison evidence and human quality ratings before considering a release.",
+                    "versions",
+                    section=f"evaluation:{run.id}",
+                    responsibility="owner_review" if run.status == "AwaitingReview" else "waiting_for_member",
+                    created_at=run.created_at,
+                )
+            )
+            items[-1]["target"]["id"] = run.candidate_id
         items += usage_items(db)
+        from app.owner_updates import blocking_items
+
+        items += blocking_items(db)
         pending = db.scalars(
             select(Request)
             .join(User, Request.user_id == User.id)
@@ -637,6 +663,11 @@ def classify_intent(content):
         text,
     ):
         return "members"
+    if re.search(
+        r"blocked.*spending|spending.*blocked|approved changes.*(apply|applied)|pending member reviews|preventing.*request|需要.*决策|预算.*阻塞",
+        text,
+    ):
+        return "attention"
     patterns = [
         ("usage", r"uncertain|unknown usage|slot|allowance|quota|用量|额度|配额|未知用量|释放"),
         ("incidents", r"incident|recover|blocked|failure|troubleshoot|故障|恢复|异常|修复"),
@@ -652,7 +683,7 @@ def classify_intent(content):
         ),
         (
             "attention",
-            r"awaiting.?confirmation|waiting.?for.?member|needs?.*attention|what.*(handle|do)|待办|待处理|需要.*处理|等待.*确认|待确认",
+            r"blocked.*spending|spending.*blocked|approved changes|pending member reviews|awaiting.?confirmation|waiting.?for.?member|needs?.*attention|what.*(handle|do)|待办|待处理|需要.*处理|等待.*确认|待确认",
         ),
         ("approvals", r"approv|\breviews?\b|application|decline|reject|审核|审批|申请|同意|拒绝"),
         ("members", r"member|assign|move|group|会员|分组|调组|转组"),

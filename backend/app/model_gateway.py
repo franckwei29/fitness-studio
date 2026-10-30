@@ -24,9 +24,10 @@ from app.work_queue import lock_claim
 class ModelUnavailable(Exception):
     """A fixed status explanation that does not require another model call."""
 
-    def __init__(self, message, wait_reason="ModelDispatchUnavailable"):
+    def __init__(self, message, wait_reason="ModelDispatchUnavailable", context=None):
         super().__init__(message)
         self.wait_reason = wait_reason
+        self.context = context or {}
 
 
 def generate(claim, instruction, context, output_type, max_output_tokens=2048):
@@ -94,6 +95,7 @@ def generate(claim, instruction, context, output_type, max_output_tokens=2048):
                     {"Hour": "HourlyCallLimit", "AccountDay": "AccountDailyCallLimit"}.get(
                         permit, "ModelDispatchUnavailable"
                     ),
+                    {"model": model, "provider": provider, "amount_micros": reservation_micros},
                 )
             granted = True
             if not mark_dispatching(call_id, claim=claim):

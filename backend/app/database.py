@@ -1,5 +1,6 @@
 """Short-lived database units of work."""
 
+import logging
 from contextlib import contextmanager
 from functools import lru_cache
 
@@ -27,3 +28,15 @@ def engine():
 def transaction():
     with Session(engine(), expire_on_commit=False) as session, session.begin():
         yield session
+        resume = session.info.get("resume_waiting", False)
+    if resume:
+        from app.wait_recovery import resume_waiting
+
+        try:
+            from app.intent_router import resume_admission_goals
+
+            resume_admission_goals()
+            resume_waiting(force=True)
+        except Exception as exc:
+            # The setting is already committed. Scheduled maintenance retries recovery.
+            logging.getLogger(__name__).warning("Task recovery deferred (%s).", type(exc).__name__)

@@ -130,6 +130,10 @@ class WorkItem(Record, Base):
     subject_id: Mapped[str] = mapped_column(String(36))
     status: Mapped[str] = mapped_column(String(30), default="Queued")
     wait_reason: Mapped[str | None] = mapped_column(String(80))
+    wait_context: Mapped[dict | None] = mapped_column(JSON, default=dict)
+    resume_after: Mapped[datetime | None] = mapped_column(DateTime, index=True)
+    resume_count: Mapped[int] = mapped_column(Integer, default=0)
+    capacity_waits: Mapped[int] = mapped_column(Integer, default=0)
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     lease_until: Mapped[datetime | None] = mapped_column(DateTime)
     fence: Mapped[int] = mapped_column(Integer, default=0)
@@ -355,3 +359,14 @@ class EvaluationResult(Record, Base):
     passed: Mapped[bool] = mapped_column(Boolean)
     latency_ms: Mapped[int | None] = mapped_column(Integer)
     error_code: Mapped[str | None] = mapped_column(String(80))
+
+
+class OwnerUpdate(Record, Base):
+    __tablename__ = "owner_updates"
+    __table_args__ = (UniqueConstraint("user_id", "business_key"),)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    business_key: Mapped[str] = mapped_column(String(200))
+    item: Mapped[dict] = mapped_column(JSON)
+    state: Mapped[str] = mapped_column(String(30), default="Needs action")
+    read_at: Mapped[datetime | None] = mapped_column(DateTime)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime)

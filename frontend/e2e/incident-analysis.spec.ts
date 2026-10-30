@@ -6,7 +6,8 @@ test('owner explicitly starts analysis for the selected incident', async ({ page
   await page.route('**/api/**', async route => {
     const path = new URL(route.request().url()).pathname;
     let data: unknown;
-    if (path === '/api/auth/me') data = { user: { id: 'owner', display_name: 'Owner', role: 'Owner' }, csrf_token: 'test' };
+    if(new URL(route.request().url()).pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
+  if (path === '/api/auth/me') data = { user: { id: 'owner', display_name: 'Owner', role: 'Owner' }, csrf_token: 'test' };
     else if (path === '/api/owner/groups') data = [];
     else if (path === '/api/conversations') data = route.request().method() === 'POST' ? conversation : submissions.length ? [conversation] : [];
     else if (path === '/api/owner/incidents') data = [{ id: 'incident-one', title: 'Coach request needs attention', status: 'Open', outcome: 'Pending', current_fence: 1, task_status: 'Waiting', evidence: { role: 'Coach', reason: 'BudgetRequired', attempts: 1 }, recovery: null }];

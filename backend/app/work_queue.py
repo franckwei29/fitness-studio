@@ -22,6 +22,10 @@ class StaleClaim(Exception):
     """The worker no longer owns an unexpired claim."""
 
 
+def execution_attempts(item):
+    return max(0, item.attempts - item.capacity_waits)
+
+
 def event(db, request, kind, **payload):
     db.add(RequestEvent(request_id=request.id, event_type=kind, payload=payload))
 
@@ -59,7 +63,7 @@ def claim_next(lease_seconds=120, request_id=None):
             item.wait_reason = "RequestEnded"
             return None
         user = db.get(User, request.user_id)
-        if request.deadline <= now() or item.attempts >= 3 or not user or not user.active:
+        if request.deadline <= now() or execution_attempts(item) >= 3 or not user or not user.active:
             item.status = request.status = "Stopped"
             item.wait_reason = "DeadlineOrAttemptLimit" if user and user.active else "AccountUnavailable"
             event(db, request, "stopped", status="Stopped", reason=item.wait_reason)
@@ -105,11 +109,21 @@ def heartbeat(claim, lease_seconds=120):
         item.lease_until = min(request.deadline, now() + timedelta(seconds=lease_seconds))
 
 
-def wait_for(claim, reason):
+def wait_for(claim, reason, context=None):
     with transaction() as db:
         item, request = lock_claim(db, claim)
         item.status = request.status = "Waiting"
         item.wait_reason = reason
+        item.wait_context = context or {}
+        item.resume_after = now() + timedelta(seconds=30)
+        if reason in {
+            "BudgetRequired",
+            "HourlyCallLimit",
+            "AccountDailyCallLimit",
+            "ModelDispatchUnavailable",
+        }:
+            # Capacity waits must not consume the crash-recovery attempt allowance.
+            item.capacity_waits += 1
         item.lease_until = None
         if reason == "PolicyReview":
             record_policy_rejection(db, item, request, "execution")
@@ -144,7 +158,7 @@ def recover_expired():
                     call.status = "UsageUnknown"
             if calls:
                 status, reason = "Waiting", "UsageReconciliation"
-            elif request.deadline <= now() or item.attempts >= 3:
+            elif request.deadline <= now() or execution_attempts(item) >= 3:
                 status, reason = "Stopped", "DeadlineOrAttemptLimit"
             else:
                 status, reason = "Queued", None

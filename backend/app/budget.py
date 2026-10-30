@@ -9,6 +9,11 @@ from app.models import BudgetAccount, BudgetReservation, ModelCall, Request, now
 class BudgetDenied(Exception):
     """A request cannot acquire the required allowance."""
 
+    def __init__(self, message, wait_reason="BudgetRequired", context=None):
+        super().__init__(message)
+        self.wait_reason = wait_reason
+        self.context = context or {}
+
 
 def reserve(
     request_id,
@@ -26,20 +31,26 @@ def reserve(
     with transaction() as db:
         request = db.scalar(select(Request).where(Request.id == request_id).with_for_update())
         if not request or request.deadline <= now() or request.status in {"Cancelled", "Stopped"}:
-            raise BudgetDenied("The request is missing or expired.")
+            raise BudgetDenied("The request is missing or expired.", "RequestEnded")
         if request.model_calls >= request.max_model_calls:
-            raise BudgetDenied("The request has reached its model call limit.")
+            raise BudgetDenied("The request has reached its model call limit.", "RequestCallLimit")
         accounts = []
         for scope in scopes:
             account = db.scalar(
                 select(BudgetAccount).where(BudgetAccount.scope_key == scope).with_for_update()
             )
             if account is None:
-                raise BudgetDenied("A required budget account is not configured.")
+                raise BudgetDenied(
+                    "A required budget account is not configured.",
+                    context={"amount_micros": amount_micros, "model": model, "provider": provider, "scope_key": scope},
+                )
             if account.currency != "USD":
-                raise BudgetDenied("The budget currency is not supported.")
+                raise BudgetDenied("The budget currency is not supported.", "TechnicalReview")
             if account.limit_micros - account.spent_micros - account.reserved_micros < amount_micros:
-                raise BudgetDenied("There is insufficient model budget.")
+                raise BudgetDenied(
+                    "There is insufficient model budget.",
+                    context={"amount_micros": amount_micros, "model": model, "provider": provider, "scope_key": scope},
+                )
             accounts.append(account)
         call = ModelCall(
             request_id=request.id,
@@ -130,6 +141,10 @@ def cancel_undispatched(call_id):
 
 def cancel_reserved_in_transaction(db, call_id):
     """Release an undispatched reservation in the caller's transaction."""
+    existing = db.get(ModelCall, call_id)
+    if not existing:
+        raise ValueError("Model call not found.")
+    request = db.scalar(select(Request).where(Request.id == existing.request_id).with_for_update())
     call = db.scalar(select(ModelCall).where(ModelCall.id == call_id).with_for_update())
     if not call:
         raise ValueError("Model call not found.")
@@ -150,5 +165,7 @@ def cancel_reserved_in_transaction(db, call_id):
     for reservation in reservations:
         reservation.settled = True
     call.status = "Cancelled"
+    # A capacity denial never dispatched this call and must not exhaust retries.
+    request.model_calls = max(0, request.model_calls - 1)
     call.actual_micros = 0
     call.completed_at = now()

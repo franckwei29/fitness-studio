@@ -99,6 +99,7 @@ def assign_group(identifier: str, body: Assignment, user: User = Depends(owner))
             )
         )
         member.group_id = group.id
+        db.info["resume_waiting"] = True
         db.add(
             AuditEvent(
                 actor_id=user.id,

@@ -28,7 +28,8 @@ test('SSE reconnect resumes its cursor and late snapshots cannot regress complet
   try{
   await page.route('**/api/**',async route=>{
     const path=new URL(route.request().url()).pathname;
-    if(path==='/api/auth/me'){await route.fulfill({json:{user:{id:'member',display_name:'Demo Member',role:'Member'},csrf_token:'test'}});return;}
+    if(new URL(route.request().url()).pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
+  if(path==='/api/auth/me'){await route.fulfill({json:{user:{id:'member',display_name:'Demo Member',role:'Member'},csrf_token:'test'}});return;}
     if(path==='/api/conversations'){await route.fulfill({json:[conversation]});return;}
     if(path==='/api/conversations/conversation'){
       const read=++reads;

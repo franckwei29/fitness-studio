@@ -186,5 +186,5 @@ def test_no_supported_food_stops_before_inference(monkeypatch, member):
     assert run_once(identifier)
     status = member.get("/api/requests/" + identifier).json()
     assert status["status"] == "Waiting" and status["model_calls"] == 0
-    assert "permissions or profile need review" in status["status_message"]
+    assert "needs a studio review" in status["status_message"]
     assert member.get("/api/me/plans").json()["current"]["version"] == 0

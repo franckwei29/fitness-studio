@@ -6,6 +6,7 @@ test('owner filters the period and downloads a matching Markdown brief', async (
   await page.route('**/api/**', async route => {
     const url = new URL(route.request().url());
     let data: unknown;
+    if(url.pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
     if (url.pathname === '/api/auth/me') data = { user: { id: 'owner', display_name: 'Studio Owner', role: 'Owner' }, csrf_token: 'test' };
     else if (['/api/conversations', '/api/owner/groups'].includes(url.pathname)) data = [];
     else if (url.pathname === '/api/owner/dashboard') {

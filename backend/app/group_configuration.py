@@ -197,6 +197,7 @@ def execute(identifier: str, user: User = Depends(owner)):
         if digest != change.fingerprint:
             raise HTTPException(409, "The approved candidate has changed.")
         group.configuration = candidate
+        db.info["resume_waiting"] = True
         group.version += 1
         change.status = "Executed"
         change.execution = {

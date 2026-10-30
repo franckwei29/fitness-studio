@@ -10,6 +10,7 @@ test('owner reviews every comparison result before submitting quality ratings',a
  await page.route('**/api/**',async route=>{
   const url=new URL(route.request().url()).pathname;
   let data:unknown;
+  if(new URL(route.request().url()).pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
   if(url==='/api/auth/me')data={user:{id:'owner',display_name:'Fixture Owner',role:'Owner'},csrf_token:'test-csrf'};
   else if(url==='/api/conversations')data=[];
   else if(url==='/api/owner/groups')data=[];
@@ -48,7 +49,8 @@ test('incomplete comparison retains evidence but cannot be reviewed or restarted
   await page.route('**/api/**', async route => {
     const path = new URL(route.request().url()).pathname;
     let data: unknown;
-    if (path === '/api/auth/me') data = { user: { id: 'owner', display_name: 'Fixture Owner', role: 'Owner' }, csrf_token: 'test' };
+    if(new URL(route.request().url()).pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
+  if (path === '/api/auth/me') data = { user: { id: 'owner', display_name: 'Fixture Owner', role: 'Owner' }, csrf_token: 'test' };
     else if (path === '/api/conversations' || path === '/api/owner/groups') data = [];
     else if (path === '/api/owner/agent-versions') data = { default_model: 'test-model', versions: [candidate] };
     else if (path.endsWith('/evaluations/run')) data = { run, results: [], tasks: [{ request_id: 'task', status: 'Cancelled', wait_reason: null }], usage: { calls: 1, settled_micros: 15, unknown_calls: 0 } };

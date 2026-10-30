@@ -82,6 +82,7 @@ def complete_admission(db, row, actor_id):
     else:
         member.profile_version += 1
     member.status = "Accepted"
+    db.info["resume_waiting"] = True
     db.add(
         ProfileSnapshot(
             member_id=member.id,

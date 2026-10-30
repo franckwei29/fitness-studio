@@ -7,7 +7,8 @@ test('continuity reminder leads to plans without treating a read as feedback', a
     const path = new URL(route.request().url()).pathname;
     if (route.request().method() !== 'GET') writes.push(path);
     let data: unknown;
-    if (path === '/api/auth/me') data = { user: { id: 'member', display_name: 'Test Member', role: 'Member' }, csrf_token: 'test' };
+    if(new URL(route.request().url()).pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
+  if (path === '/api/auth/me') data = { user: { id: 'member', display_name: 'Test Member', role: 'Member' }, csrf_token: 'test' };
     else if (path === '/api/conversations') data = [];
     else if (path === '/api/me/notifications') data = [{ id: 'reminder', title: 'How is your routine going?', body: 'Record your experience when you are ready.', kind: 'Continuity', read_at: null, created_at: '2026-10-20T12:00:00' }];
     else if (path === '/api/me/plans') data = { member_status: 'Accepted', catalogue_labels: {}, substitutions_enabled: false, current: { version: 0, training_id: null, nutrition_id: null, pair_id: null }, plans: [], pairs: [] };

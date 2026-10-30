@@ -8,6 +8,7 @@ from redis.exceptions import RedisError
 from sqlalchemy import select
 
 from app.database import transaction
+from app.member_status import waiting_status
 from app.models import (
     Approval,
     BudgetAccount,
@@ -115,14 +116,7 @@ def activity_view(db, request):
         if (request.result or {}).get("stop_reason") == "DeadlineExpired":
             status, detail = "Expired", "This update expired. Start a new conversation to continue."
     elif request.status == "Waiting":
-        status = "Assistance paused"
-        detail = {
-            "BudgetRequired": "AI assistance is paused. The studio needs to review its allowance.",
-            "HourlyCallLimit": "The shared hourly allowance is full. The studio can resume this update when capacity returns.",
-            "AccountDailyCallLimit": "Your rolling 24-hour allowance is full. Existing plans are still available.",
-            "UsageReconciliation": "A response could not be confirmed. The studio needs to review it before retrying.",
-            "PolicyReview": "Your details or service settings need a studio review.",
-        }.get(reason, "The studio needs to review this update before it can continue.")
+        status, detail, _ = waiting_status(reason)
     elif request.status in {"Completed", "AwaitingConfirmation"}:
         status, detail = "Answer ready", "Your answer is available in the conversation."
         if (request.result or {}).get("needs_input"):
@@ -203,6 +197,13 @@ def activity_view(db, request):
                     "This draft expired. Request a fresh update before using it.",
                     False,
                 )
+    if request.status in {"Queued", "Running"} and any(w.resume_count for w in works):
+        status = (
+            "Resuming your plans"
+            if request.kind in {"Training", "Nutrition", "Combined"}
+            else "Resuming your request"
+        )
+        detail = "Preparation is continuing from where it stopped. You don’t need to submit again."
     if plans and request.status in {"Waiting", "Stopped"} and request.kind == "Combined":
         detail = "Only part of your routine is ready. " + detail
     return {
@@ -216,6 +217,8 @@ def activity_view(db, request):
         "created_at": request.created_at.isoformat() + "Z",
         "can_cancel": request.status in {"Queued", "Running", "Waiting", "AwaitingConfirmation"},
         "in_progress": request.status in {"Queued", "Running"},
+        "no_action_needed": request.status in {"Queued", "Running", "Waiting"},
+        "auto_resume": request.status == "Waiting" and waiting_status(reason)[2],
         "stages": [
             {
                 "role": role,
@@ -314,9 +317,7 @@ def usage(user: User = Depends(principal)):
             elif relevant and all(not row["configured"] or row["used"] >= row["limit"] for row in relevant):
                 status, reason = (
                     "Unavailable",
-                    "The studio-wide hourly allowance is full for "
-                    + ", ".join(row["label"] for row in relevant if row["configured"])
-                    + ". Please wait for capacity to return.",
+                    "AI assistance is temporarily busy. Your saved requests will continue when service becomes available.",
                 )
                 blocking_scope = "ModelHour"
             elif connection.scard(gate.keys[2]) >= settings.model_concurrency_limit:
@@ -328,7 +329,10 @@ def usage(user: User = Depends(principal)):
             if len(accounts) < len(scopes) or any(
                 a.limit_micros - a.reserved_micros - a.spent_micros < reservation for a in accounts
             ):
-                status, reason = "Paused", "The studio needs to review the available AI budget."
+                status, reason = (
+                    "Temporarily delayed",
+                    "AI assistance is temporarily delayed. Your saved requests will continue when service becomes available.",
+                )
                 blocking_scope = "Spending"
         release_index = max(0, len(day) - account_limit)
         next_at = (
@@ -379,6 +383,11 @@ def usage(user: User = Depends(principal)):
             result["model_usage"] = model_usage
             result["default_provider"] = model_info(settings.default_model)["provider"]
             result["default_model"] = settings.default_model
+        if user.role != "Owner":
+            for key in ("shared_hourly_limit", "model_limits", "model_next_capacity_at", "blocking_scope"):
+                result.pop(key, None)
+            if blocking_scope != "AccountDay":
+                result["blocking_until"] = None
         return result
     except RedisError:
         raise HTTPException(

@@ -6,6 +6,7 @@ test('owner records both configuration and release prerequisites', async ({ page
  await page.route('**/api/**',async route=>{
   const path=new URL(route.request().url()).pathname;
   let data:unknown=[];
+  if(new URL(route.request().url()).pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
   if(path==='/api/auth/me')data={user:{id:'owner',display_name:'Owner',role:'Owner'},csrf_token:'test'};
   else if(path==='/api/owner/incidents')data=[incident];
   else if(path==='/api/owner/changes')data=[{id:'config',kind:'GroupConfiguration',reason:'Enable required capability',status:'Executed'}];

@@ -186,6 +186,7 @@ def change(db, body, actor):
         raise HTTPException(422, "Only a member can restore the group default.")
     row = row_for(db, body.scope_key)
     row.calls = body.calls
+    db.info["resume_waiting"] = True
     row.version += 1
     db.flush()
     after = entry(db, body.scope_key)

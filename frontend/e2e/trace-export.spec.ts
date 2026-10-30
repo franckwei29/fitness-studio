@@ -7,7 +7,8 @@ test(`owner trace download remains available with external export ${configured?'
   await page.route('**/api/**',async route=>{
     const path=new URL(route.request().url()).pathname;
     let data:unknown;
-    if(path==='/api/auth/me')data={user:{id:'owner',display_name:'Studio Owner',role:'Owner'},csrf_token:'test'};
+    if(new URL(route.request().url()).pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
+  if(path==='/api/auth/me')data={user:{id:'owner',display_name:'Studio Owner',role:'Owner'},csrf_token:'test'};
     else if(['/api/conversations','/api/owner/groups'].includes(path))data=[];
     else if(path==='/api/owner/dashboard')data={members:{},requests:{Waiting:1},pending_approvals:0,unreconciled_calls:0,budgets:[],recent_requests:[{id:'request',kind:'Chat',status:'Waiting',model_calls:0}],period:{start:'2026-10-01',end:'2026-10-07',generated_at:'2026-10-07T00:00:00Z',new_members:0,plan_versions_created:0,successful_activations:0,active_members_now:0,unresolved_incidents_now:0,settled_micros:0,held_micros:0,unknown_calls:0,cost_by_role:[],cost_by_member:[],definitions:[]}};
     else if(path==='/api/owner/requests/request/trace')data=trace;

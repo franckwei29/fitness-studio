@@ -22,9 +22,9 @@ from app.work_queue import StaleClaim, claim_next, lock_claim, recover_expired, 
 logger = logging.getLogger("fitness_studio.worker")
 
 
-def record_failure(claim, reason):
+def record_failure(claim, reason, context=None):
     try:
-        wait_for(claim, reason)
+        wait_for(claim, reason, context)
         record_incident(claim, reason)
     except StaleClaim:
         logger.info("Task lease no longer permits a status update: %s", claim.work_id)
@@ -50,10 +50,10 @@ def execute(claim):
             run_nutrition(claim)
         else:
             record_failure(claim, "ExecutorUnavailable")
-    except BudgetDenied:
-        record_failure(claim, "BudgetRequired")
+    except BudgetDenied as exc:
+        record_failure(claim, exc.wait_reason, exc.context)
     except ModelUnavailable as exc:
-        record_failure(claim, exc.wait_reason)
+        record_failure(claim, exc.wait_reason, exc.context)
     except PolicyDenied:
         record_failure(claim, "PolicyReview")
     except (ProviderFailure, UsageUncertain):

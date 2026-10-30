@@ -8,7 +8,8 @@ test('owner restricts field access through proposal, approval, and execution',as
   await page.route('**/api/**',async route=>{
     const path=new URL(route.request().url()).pathname;
     let data:unknown;
-    if(path==='/api/auth/me')data={user:{id:'owner',display_name:'Demo Owner',role:'Owner'},csrf_token:'test'};
+    if(new URL(route.request().url()).pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
+  if(path==='/api/auth/me')data={user:{id:'owner',display_name:'Demo Owner',role:'Owner'},csrf_token:'test'};
     else if(path==='/api/conversations')data=[];
     else if(path==='/api/owner/call-limits/entry')data={scope_key:'group:group',label:'Default',calls:200,limit:200,version:1,fingerprint:'x'.repeat(64),applies_to:'Each member separately',source:'Group default',inheriting_members:1};
     else if(path==='/api/owner/groups')data=[group];

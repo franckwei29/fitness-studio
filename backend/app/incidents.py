@@ -232,7 +232,7 @@ class RecoveryRequest(BaseModel):
 def request_recovery(identifier: str, body: RecoveryRequest, user: User = Depends(owner)):
     from app.models import ModelCall
     from app.policy import PolicyDenied, execution_context
-    from app.work_queue import event
+    from app.work_queue import event, execution_attempts
 
     with transaction() as db:
         incident = db.scalar(select(Incident).where(Incident.id == identifier).with_for_update())
@@ -244,7 +244,11 @@ def request_recovery(identifier: str, body: RecoveryRequest, user: User = Depend
         if not item or item.status != "Waiting" or item.fence != body.expected_fence:
             raise HTTPException(409, "The task state has changed. Refresh the incident.")
         request = db.scalar(select(Request).where(Request.id == item.request_id).with_for_update())
-        if request.deadline <= now() or item.attempts >= 3 or request.model_calls >= request.max_model_calls:
+        if (
+            request.deadline <= now()
+            or execution_attempts(item) >= 3
+            or request.model_calls >= request.max_model_calls
+        ):
             raise HTTPException(409, "The original request has reached its deadline or attempt limit.")
         unsettled = db.scalar(
             select(ModelCall.id)

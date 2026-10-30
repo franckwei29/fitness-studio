@@ -11,6 +11,7 @@ from sqlalchemy import case, func, select
 
 from app.admission import fingerprint, view
 from app.database import transaction
+from app.member_status import public_event, waiting_status
 from app.models import (
     AuditEvent,
     ChatSession,
@@ -98,6 +99,51 @@ def request_view(db, row):
         result["status_message"] = (
             "Request cancelled. Any model call already dispatched may still incur usage; its result will not be applied."
         )
+    account = db.get(User, row.user_id)
+    if account and account.role != "Owner":
+        if waiting:
+            result["status_message"] = waiting_status(waiting.wait_reason)[1]
+        elif row.status == "Cancelled":
+            result["status_message"] = "This update was cancelled. Your existing plans were kept."
+        elif row.status == "Stopped" and not (row.result or {}).get("review_message"):
+            result["status_message"] = "This update could not be completed. Your existing plans were kept."
+        result.pop("max_model_calls", None)
+        result["payload"] = {
+            key: value
+            for key, value in (row.payload or {}).items()
+            if key
+            in {
+                "content",
+                "role",
+                "speaker",
+                "action",
+                "auto",
+                "routed",
+                "requested_purpose",
+                "plan_baseline",
+            }
+        }
+        result["result"] = {
+            key: value
+            for key, value in (row.result or {}).items()
+            if key
+            in {
+                "status",
+                "needs_input",
+                "prompt",
+                "pending_goal",
+                "pending_reason",
+                "continued",
+                "message_id",
+                "host_changed",
+                "training_id",
+                "nutrition_id",
+                "pair_id",
+                "correction_work_id",
+                "generation_method",
+                "call_id",
+            }
+        }
     return result
 
 
@@ -423,7 +469,7 @@ def events(
             )
         )
         chunks = [
-            f"id: {row.sequence}\nevent: {row.event_type}\ndata: {json.dumps(row.payload)}\n\n"
+            f"id: {row.sequence}\nevent: {row.event_type}\ndata: {json.dumps(row.payload if user.role == 'Owner' else public_event(row.payload))}\n\n"
             for row in rows
         ]
     return StreamingResponse(

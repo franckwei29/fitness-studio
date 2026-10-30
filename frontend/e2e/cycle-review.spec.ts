@@ -6,6 +6,7 @@ test('member explicitly confirms cycle feedback and sees awaiting confirmation',
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
  await page.route('**/api/**',async route=>{
   const path=new URL(route.request().url()).pathname;let data:unknown;
+  if(new URL(route.request().url()).pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
   if(path==='/api/auth/me')data={user:{id:'member',display_name:'Test Member',role:'Member'},csrf_token:'test'};
   else if(path==='/api/conversations')data=[];
   else if(path==='/api/me/plans')data={member_status:'Accepted',catalogue_labels:{},substitutions_enabled:false,current:{version:1,training_id:'training',nutrition_id:null,pair_id:null},pairs:[],plans:[{id:'training',request_id:'old',kind:'Training',version:1,status:'Active',availability:{usable:true,reason:null},content:{title:'Current routine'},rationale:'Fixture'}]};

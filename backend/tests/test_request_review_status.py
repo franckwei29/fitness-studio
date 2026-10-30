@@ -21,6 +21,7 @@ from app.chat import request_view
 def test_review_message_does_not_hide_current_lifecycle(monkeypatch, status, reason, waiting, expected):
     row = SimpleNamespace(
         id="request",
+        user_id="owner",
         status=status,
         kind="Training",
         revisions=2,
@@ -28,6 +29,7 @@ def test_review_message_does_not_hide_current_lifecycle(monkeypatch, status, rea
     )
     work = SimpleNamespace(role="Coach", wait_reason="BudgetRequired") if waiting else None
     db = Mock()
+    db.get.return_value = SimpleNamespace(role="Owner")
     db.scalar.side_effect = [work, work]
     monkeypatch.setattr("app.chat.view", lambda _: {})
     assert request_view(db, row)["status_message"].startswith(expected)

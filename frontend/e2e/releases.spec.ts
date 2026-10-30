@@ -7,6 +7,7 @@ test('owner supplies a reason before restoring a retained release',async({page})
  let rollback:any=null;
  await page.route('**/api/**',async route=>{
   const path=new URL(route.request().url()).pathname;let data:unknown;
+  if(new URL(route.request().url()).pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
   if(path==='/api/auth/me')data={user:{id:'owner',display_name:'UI Owner',role:'Owner'},csrf_token:'test'};
   else if(path==='/api/conversations')data=[];
   else if(path==='/api/owner/agent-versions')data={versions:[{id:'candidate',label:'Candidate',role:'Coach'},{id:'baseline',label:'Baseline',role:'Coach'}]};

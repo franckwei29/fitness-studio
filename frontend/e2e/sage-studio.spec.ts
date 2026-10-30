@@ -3,7 +3,8 @@ for(const width of [320,390,768,1024,1440])test(`Sage plans and activity are rea
  await page.setViewportSize({width,height:900});
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/api/**',async route=>{const p=new URL(route.request().url()).pathname;let data:unknown;
- if(p==='/api/auth/me')data={user:{id:'m',display_name:'Member',role:'Member'},csrf_token:'x'};
+ if(new URL(route.request().url()).pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
+  if(p==='/api/auth/me')data={user:{id:'m',display_name:'Member',role:'Member'},csrf_token:'x'};
  else if(p==='/api/conversations')data=[];
  else if(p==='/api/me/plans')data={member_status:'Accepted',catalogue_labels:{oats:'Rolled oats'},substitutions_enabled:false,current:{version:1,nutrition_id:'n'},pairs:[],plans:[{id:'n',request_id:'r',kind:'Nutrition',version:1,status:'Active',availability:{usable:true,reason:null},content:{title:'Breakfast example',meals:[{name:'Breakfast',portions:[{food_id:'oats',grams:50}],preparation:'Prepare oats.'}],limitations:['General meal example.']},rationale:'A current meal example.'}]};
  else if(p==='/api/me/usage')data={account_used:24,account_limit:100,shared_hourly_limit:10,next_capacity_at:null,service_availability:'Busy',blocking_reason:'The studio is currently busy.'};
@@ -24,7 +25,8 @@ test('direct plan view and chosen handoff preserve message authors',async({page}
  let role='Intake';const messages:any[]=[];const actions:string[]=[];
  await page.route('**/api/**',async route=>{const p=new URL(route.request().url()).pathname;let data:unknown;
  const conversation={id:'c',title:'Your fitness journey',active_role:role};
- if(p==='/api/auth/me')data={user:{id:'m',display_name:'Member',role:'Member'},csrf_token:'x'};
+ if(new URL(route.request().url()).pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
+  if(p==='/api/auth/me')data={user:{id:'m',display_name:'Member',role:'Member'},csrf_token:'x'};
  else if(p==='/api/conversations')data=route.request().method()==='POST'?conversation:[];
  else if(p==='/api/conversations/c')data={conversation,messages,requests:[]};
  else if(p==='/api/me/plan-summary')data={current_version:0,plans:[],schedule_note:'No schedule.'};

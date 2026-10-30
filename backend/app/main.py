@@ -23,6 +23,7 @@ from app.member_experience import router as experience_router
 from app.models import LoginSession, User
 from app.notifications import router as notifications_router
 from app.operations import router as operations_router
+from app.owner_updates import router as owner_updates_router
 from app.owner_workspace import router as owner_workspace_router
 from app.plans import router as plans_router
 from app.readiness import check_readiness
@@ -162,3 +163,6 @@ app.include_router(usage_router)
 
 
 app.include_router(experience_router)
+
+
+app.include_router(owner_updates_router)

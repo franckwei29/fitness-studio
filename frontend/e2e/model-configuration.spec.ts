@@ -3,7 +3,8 @@ for(const width of [390,1440])test(`provider configuration and model usage at ${
  await page.setViewportSize({width,height:950});let saved:any=null;
  const models=[{id:'gpt-6-luna',provider:'openai',label:'GPT-6 Luna',configured:true,reasoning:['none','low','medium','high'],input_per_million:'0.10',output_per_million:'0.50'},{id:'gemini-3.5-flash-lite',provider:'gemini',label:'Gemini Flash Lite',configured:false,reasoning:[],input_per_million:'0.30',output_per_million:'2.50'}];
  await page.route('**/api/**',async route=>{const path=new URL(route.request().url()).pathname;let data:any;
- if(path==='/api/auth/me')data={user:{id:'o',display_name:'Owner',role:'Owner'},csrf_token:'x'};
+ if(new URL(route.request().url()).pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
+  if(path==='/api/auth/me')data={user:{id:'o',display_name:'Owner',role:'Owner'},csrf_token:'x'};
  else if(path==='/api/conversations'||path==='/api/notifications')data=[];
  else if(path==='/api/owner/agent-versions'){if(route.request().method()==='POST'){saved=route.request().postDataJSON();data={id:'v',...saved,prompt:'English output.',configured_groups:[]};}else data={default_model:'gpt-6-luna',default_provider:'openai',models,versions:[]};}
  else if(path==='/api/owner/call-limits')data={models:models.map((row,i)=>({...row,model:row.id,scope_key:`model:${row.provider}:${row.id}`,calls:100,used:i?8:36,limit:100,version:1,fingerprint:'x'.repeat(64),source:'Studio model limit',applies_to:'All studio accounts'})),groups:[],members:[],total:0,owner:{scope_key:'owner:o',label:'Owner',calls:200,limit:200,version:1,fingerprint:'x'.repeat(64)},initial:{scope_key:'initial',label:'Initial account allowance',calls:200,limit:200,version:1,fingerprint:'x'.repeat(64)},default_model:'gpt-6-luna'};

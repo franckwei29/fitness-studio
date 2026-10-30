@@ -395,6 +395,37 @@ def submit_auto(db, session, body, user):
     content = body.content
     deadline = now() + timedelta(hours=24)
     decision = None
+    if not body.action:
+        pending = db.scalars(
+            select(Request).where(
+                Request.session_id == session.id,
+                Request.user_id == user.id,
+                Request.status.in_(["Queued", "Running", "Waiting"]),
+                Request.deadline > now(),
+            )
+        )
+        for previous in pending:
+            original = previous.payload.get("original_content", previous.payload.get("content", ""))
+            if " ".join(original.split()) == " ".join(body.content.split()):
+                result = {"request_id": previous.id, "status": previous.status, "already_pending": True}
+                db.add(
+                    IdempotencyRecord(
+                        user_id=user.id,
+                        operation=f"chat:{session.id}",
+                        key=body.key,
+                        fingerprint=fingerprint(
+                            {
+                                "content": body.content,
+                                "purpose": body.purpose,
+                                "operations_group_id": body.operations_group_id,
+                                "action": body.action,
+                                "source_request_id": body.source_request_id,
+                            }
+                        ),
+                        result=result,
+                    )
+                )
+                return result
     if body.action:
         direct = {
             "ViewPlans": ("ViewPlans", role),

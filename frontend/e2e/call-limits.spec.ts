@@ -7,6 +7,7 @@ async function setup(page:Page){
  let stale=false;
  await page.route('**/api/**',async route=>{
   const url=new URL(route.request().url()),path=url.pathname;let data:any;
+  if(new URL(route.request().url()).pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
   if(path==='/api/auth/me')data={user:{id:'o',display_name:'Owner',role:'Owner'},csrf_token:'x'};
   else if(path==='/api/conversations')data=[conversation];
   else if(path==='/api/conversations/limits-chat')data={conversation,messages,requests:[]};

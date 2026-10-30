@@ -70,7 +70,7 @@ def test_cancel_is_owned_idempotent_and_fences_work(status):
         assert other.post(url, json={}).status_code == 404
         response = client.post(url, json={})
         assert response.status_code == 200 and response.json()["status"] == "Cancelled"
-        assert "may still incur usage" in response.json()["status_message"]
+        assert "existing plans were kept" in response.json()["status_message"]
         assert client.post(url, json={}).json()["status"] == "Cancelled"
         assert any(row["id"] == identifier for row in client.get("/api/requests").json())
         assert all(row["id"] != identifier for row in other.get("/api/requests").json())

@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test';
 test('member cancels a pending update with a clear business explanation', async ({page})=>{
  let cancelled=false;
  await page.route('**/api/**',async route=>{const path=new URL(route.request().url()).pathname;let data:unknown;
- if(path==='/api/auth/me')data={user:{id:'member',display_name:'Demo Member',role:'Member'},csrf_token:'test'};
+ if(new URL(route.request().url()).pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
+  if(path==='/api/auth/me')data={user:{id:'member',display_name:'Demo Member',role:'Member'},csrf_token:'test'};
  else if(path==='/api/conversations')data=[];
  else if(path==='/api/me/usage')data={account_used:4,account_limit:100,shared_hourly_limit:10,service_availability:'Available',next_capacity_at:null};
  else if(path==='/api/requests/request/cancel'){expect(route.request().method()).toBe('POST');cancelled=true;data={status:'Cancelled'};}

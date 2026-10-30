@@ -15,6 +15,8 @@ def scheduled_maintenance():
     from app.evaluation_lifecycle import close_incomplete_evaluations
     from app.expiry import expire_waits
     from app.intent_router import resume_admission_goals
+    from app.owner_updates import reconcile
+    from app.wait_recovery import resume_waiting
     from app.work_queue import recover_expired
 
     created = 0
@@ -22,8 +24,10 @@ def scheduled_maintenance():
         recover_expired,
         resume_admission_goals,
         expire_waits,
+        resume_waiting,
         close_incomplete_evaluations,
         generate_reminders,
+        reconcile,
         monitor_canaries,
     ):
         try:

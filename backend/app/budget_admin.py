@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from app.admission import fingerprint
 from app.database import transaction
-from app.models import AuditEvent, BudgetAccount, Member, MemberGroup, User
+from app.models import AuditEvent, BudgetAccount, Member, MemberGroup, Request, User
 from app.security import owner
 
 router = APIRouter(prefix="/api/owner/budgets")
@@ -42,6 +42,7 @@ class BudgetChange(BaseModel):
 @router.post("")
 def change_budget(body: BudgetChange, user: User = Depends(owner)):
     with transaction() as db:
+        waiting_ids = list(db.scalars(select(Request.id).where(Request.status == "Waiting")))
         # Serialize account creation and changes without relying on a check-then-
         # insert race. Dispatch reservations lock the account row separately.
         db.scalar(select(BudgetAccount).where(BudgetAccount.scope_key == "global").with_for_update())
@@ -69,6 +70,7 @@ def change_budget(body: BudgetChange, user: User = Depends(owner)):
             db.add(row)
             db.flush()
         row.limit_micros = body.limit_micros
+        db.info["resume_waiting"] = True
         db.add(
             AuditEvent(
                 actor_id=user.id,
@@ -82,4 +84,14 @@ def change_budget(body: BudgetChange, user: User = Depends(owner)):
                 },
             )
         )
-        return budget_view(row)
+        result = budget_view(row)
+    with transaction() as db:
+        pending = list(db.scalars(select(Request).where(Request.id.in_(waiting_ids)))) if waiting_ids else []
+        result["recovery"] = {
+            "resumed": sum(
+                r.status in {"Queued", "Running", "Completed", "AwaitingConfirmation"} for r in pending
+            ),
+            "still_waiting": sum(r.status == "Waiting" for r in pending),
+            "message": "Waiting requests were checked against all applicable limits. Open Updates for remaining blockers.",
+        }
+    return result
