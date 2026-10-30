@@ -154,7 +154,13 @@ def sync(db, user):
     for item in items:
         key = f"{item['target']['page']}:{item['id']}:{item['target'].get('section', '')}"
         active.add(key)
-        state = "Informational" if item.get("responsibility") == "waiting_for_member" else "Needs action"
+        state = (
+            "Monitoring"
+            if item.get("responsibility") == "monitoring"
+            else "Informational"
+            if item.get("responsibility") == "waiting_for_member"
+            else "Needs action"
+        )
         data = jsonable_encoder(item)
         row = existing.get(key)
         if row is None:
@@ -210,7 +216,9 @@ def read(identifier: str, user: User = Depends(owner)):
             raise HTTPException(404, "Update not found.")
         if row.read_at is None:
             row.read_at = now()
-            db.add(AuditEvent(actor_id=user.id, subject_id=row.id, event_type="owner_update.read", details={}))
+            db.add(
+                AuditEvent(actor_id=user.id, subject_id=row.id, event_type="owner_update.read", details={})
+            )
         return {"read": True}
 
 

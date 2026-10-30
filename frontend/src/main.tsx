@@ -33,7 +33,7 @@ function App() {
   const [updates,setUpdates]=useState<UpdatesData|null>(null),[toast,setToast]=useState('');
   const seenUpdates=useRef<Set<string>|null>(null);
   useEffect(()=>{if(user?.role!=='Owner'){setUpdates(null);seenUpdates.current=null;return;}let active=true;
-    const load=async()=>{try{const data=await api<UpdatesData>('/owner/updates');if(!active)return;const keys=new Set(data.items.filter(r=>r.state!=='Resolved').map(r=>r.id+':'+r.created_at));const fresh=[...keys].filter(k=>!seenUpdates.current?.has(k));if(fresh.length)setToast(`${fresh.length} ${seenUpdates.current?'new updates are':'updates are'} available.`);seenUpdates.current=keys;setUpdates(data);}catch{/* Preserve the last known count; Updates exposes errors. */}};
+    const load=async()=>{try{const data=await api<UpdatesData>('/owner/updates');if(!active)return;const keys=new Set(data.items.filter(r=>r.state!=='Resolved'&&r.state!=='Monitoring').map(r=>r.id+':'+r.created_at));const fresh=[...keys].filter(k=>!seenUpdates.current?.has(k));if(fresh.length)setToast(`${fresh.length} ${seenUpdates.current?'new updates are':'updates are'} available.`);seenUpdates.current=keys;setUpdates(data);}catch{/* Preserve the last known count; Updates exposes errors. */}};
     void load();const timer=setInterval(()=>void load(),10000);window.addEventListener('owner-workspace-changed',load);window.addEventListener('focus',load);window.addEventListener('online',load);return()=>{active=false;clearInterval(timer);window.removeEventListener('owner-workspace-changed',load);window.removeEventListener('focus',load);window.removeEventListener('online',load);};
   },[user?.id,user?.role]);
 

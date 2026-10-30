@@ -263,27 +263,38 @@ def incident_item(row):
 
 
 def usage_items(db):
-    from app.usage_admin import release_allowed
-
-    return [
-        card(
-            row.id,
-            "Usage",
-            f"Uncertain {row.role} usage",
-            "Cost unconfirmed",
-            "The provider cost is unconfirmed. Releasing a stopped local slot keeps the reserved funds.",
-            "budgets",
-            section="unknown-usage",
-            action="release-slot" if release_allowed(db, row) else None,
-            reserved_micros=row.reserved_micros,
-            request_id=row.request_id,
-            created_at=row.created_at,
-            responsibility="needs_attention",
+    acknowledged = set(
+        db.scalars(select(AuditEvent.subject_id).where(AuditEvent.event_type == "model.usage_acknowledged"))
+    )
+    items = []
+    for row in db.scalars(
+        select(ModelCall).where(ModelCall.status == "UsageUnknown").order_by(ModelCall.created_at)
+    ):
+        request = db.get(Request, row.request_id)
+        seen = row.id in acknowledged
+        items.append(
+            card(
+                row.id,
+                "Usage",
+                f"{row.role} · Usage review",
+                "Monitoring" if seen else "Cost unconfirmed",
+                f"Request status: {request.status if request else 'Unavailable'}. "
+                f"Provider cost is unconfirmed. ${row.reserved_micros / 1000000:.6f} remains reserved. "
+                + (
+                    "Acknowledged; no further decision is required until new information is available."
+                    if seen
+                    else "Acknowledge to remove this reminder from your action list without changing the reserved funds."
+                ),
+                "budgets",
+                section="unknown-usage",
+                action=None if seen else "acknowledge-usage",
+                reserved_micros=row.reserved_micros,
+                request_id=row.request_id,
+                created_at=row.created_at,
+                responsibility="monitoring" if seen else "needs_attention",
+            )
         )
-        for row in db.scalars(
-            select(ModelCall).where(ModelCall.status == "UsageUnknown").order_by(ModelCall.created_at)
-        )
-    ]
+    return items
 
 
 def request_item(db, row, user, *, member_waiting=False):
@@ -359,7 +370,15 @@ def workspace_items(db, area, user):
             for row in db.scalars(
                 select(Incident).where(Incident.status != "Closed").order_by(Incident.created_at)
             )
-            if row.evidence.get("reason")
+            if not (
+                row.evidence.get("reason") in {"UsageReconciliation", "UsageUnknown"}
+                and db.scalar(
+                    select(ModelCall.id)
+                    .where(ModelCall.request_id == row.request_id, ModelCall.status == "UsageUnknown")
+                    .limit(1)
+                )
+            )
+            and row.evidence.get("reason")
             not in {"BudgetRequired", "HourlyCallLimit", "AccountDailyCallLimit", "ModelDispatchUnavailable"}
         ]
         for run in db.scalars(

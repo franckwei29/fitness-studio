@@ -95,3 +95,34 @@ def release_local_slot(identifier: str, body: ReleaseSlot, user: User = Depends(
             "billing_status": "UsageUnknown",
             "reservation_retained_micros": call.reserved_micros,
         }
+
+
+@router.post("/{identifier}/acknowledge")
+def acknowledge_usage(identifier: str, user: User = Depends(owner)):
+    """Acknowledge an uncertain charge without changing accounting or recovery."""
+    with transaction() as db:
+        call = db.scalar(select(ModelCall).where(ModelCall.id == identifier).with_for_update())
+        if not call or call.status != "UsageUnknown":
+            raise HTTPException(409, "This usage record has changed. Refresh before continuing.")
+        existing = db.scalar(
+            select(AuditEvent.id)
+            .where(
+                AuditEvent.subject_id == call.id,
+                AuditEvent.event_type == "model.usage_acknowledged",
+            )
+            .limit(1)
+        )
+        if not existing:
+            db.add(
+                AuditEvent(
+                    actor_id=user.id,
+                    request_id=call.request_id,
+                    subject_id=call.id,
+                    event_type="model.usage_acknowledged",
+                    details={
+                        "reservation_retained_micros": call.reserved_micros,
+                        "billing_status": "UsageUnknown",
+                    },
+                )
+            )
+        return {"status": "Monitoring", "reservation_retained_micros": call.reserved_micros}

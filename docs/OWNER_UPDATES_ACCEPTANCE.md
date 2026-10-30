@@ -36,3 +36,12 @@ Backend source changes are required for new decision-producing workflows to join
 - Browser regression including new 390px / 1440px inbox-dialog flows: 56 passed.
 - TypeScript production build and application Ruff checks passed.
 - Live local acceptance: 7 outstanding owner items were discovered from existing records, including the UAT member's missing cap and Default group's blocked spending. Marking the member reminder as read retained count 7; Adjust budget opened the exact member modal. Existing financial limits were not changed during this check.
+
+## Historical uncertain usage acknowledgement
+
+- Each uncertain provider call has one Usage review card. Its associated usage-reconciliation incident is not a duplicate action in Updates; the incident remains available in Incidents.
+- `Acknowledge & archive` opens a confirmation dialog in both the conversation and Updates. Confirmation moves the item to Monitoring, removes it from the action count and suppresses repeated new-update toasts across reloads.
+- The audit event is durable and shared across owner sessions. Repeated confirmation is idempotent. A different uncertain call creates a new decision.
+- Acknowledgement does not settle charges, release reservations, restart tasks, close incidents, or claim service recovery. Actual provider-charge reconciliation remains a separate accounting workflow; this change does not add a manual charge-entry form.
+- If the underlying usage is subsequently resolved, normal inbox synchronization moves the item to Resolved.
+- Acceptance: owner/member permission boundary, duplicate incident suppression, repeat acknowledgement, repeated synchronization, immutable unknown billing and reservation; browser modal, badge removal, reload and Monitoring visibility.
