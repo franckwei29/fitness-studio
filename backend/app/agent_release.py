@@ -19,7 +19,9 @@ from app.models import (
     ChangeRequest,
     EvaluationRun,
     MemberGroup,
+    Request,
     User,
+    WorkItem,
     now,
 )
 from app.policy import PolicyDenied
@@ -32,12 +34,11 @@ router = APIRouter(prefix="/api/owner/releases")
 
 
 def release_evidence(db, run):
-    if not run or run.status != "Reviewed" or not (run.summary or {}).get("release_eligible"):
-        raise PolicyDenied("A completed and reviewed live comparison is required.")
+    if not run or run.status not in {"Completed", "AwaitingReview", "Reviewed", "Rejected"}:
+        raise PolicyDenied("A completed live comparison is required before owner approval.")
+    # Quality ratings are historical annotations, not release authorization.
+    # Reconstruct actual provider evidence on proposal, approval and execution.
     digest, _ = verified_evidence(db, run)
-    review = run.summary.get("quality_review", {})
-    if not review.get("passed") or review.get("evidence_fingerprint") != digest:
-        raise PolicyDenied("The reviewed evidence changed. A new review is required.")
     return digest
 
 
@@ -115,6 +116,43 @@ def releases(user: User = Depends(owner)):
                 .order_by(ChangeRequest.created_at.desc())
             )
         ]
+
+
+@router.get("/{identifier}/requests")
+def trial_requests(identifier: str, user: User = Depends(owner)):
+    """Only work pinned to this release's exact group and agent version."""
+    with transaction() as db:
+        change = db.get(ChangeRequest, identifier)
+        if not change or change.kind != "AgentRelease":
+            raise HTTPException(404, "Release not found.")
+        if not change.execution:
+            return []
+        rows = db.execute(
+            select(Request.id, Request.created_at, WorkItem.role, WorkItem.status, User.display_name)
+            .join(WorkItem, WorkItem.request_id == Request.id)
+            .join(User, User.id == Request.user_id)
+            .where(
+                WorkItem.input_versions["group_id"].as_string() == change.group_id,
+                WorkItem.input_versions["agent_version"].as_string() == change.candidate["agent_version_id"],
+                WorkItem.input_versions["group"].as_integer() == change.execution["group_version"],
+            )
+            .order_by(Request.created_at.desc(), WorkItem.created_at.desc())
+            .limit(100)
+        ).all()
+        records = {}
+        for request_id, created_at, role, status, name in rows:
+            records.setdefault(
+                request_id,
+                {
+                    "request_id": request_id,
+                    "member_name": name,
+                    "role": role,
+                    "status": status,
+                    "created_at": created_at,
+                    "agent_version_id": change.candidate["agent_version_id"],
+                },
+            )
+        return list(records.values())
 
 
 @router.post("", status_code=201)
@@ -238,6 +276,20 @@ def review_release(identifier: str, body: ReleaseDecision, user: User = Depends(
             )
         )
         return view(change)
+
+
+class ReleaseConfirmation(BaseModel):
+    fingerprint: str
+
+
+@router.post("/{identifier}/confirm")
+def confirm_release(identifier: str, body: ReleaseConfirmation, user: User = Depends(owner)):
+    """A single explicit owner decision records approval and applies that exact release."""
+    from app.database import atomic_business_transaction
+
+    with atomic_business_transaction():
+        review_release(identifier, ReleaseDecision(decision="Approved", fingerprint=body.fingerprint), user)
+        return execute_release(identifier, user)
 
 
 @router.post("/{identifier}/execute")

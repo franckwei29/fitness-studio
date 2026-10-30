@@ -47,7 +47,7 @@ test('one conversation survives normal member pages, detail refresh, and draft r
   await expect(page.getByText('Your studio work stays together here.')).toBeVisible();
   const composer = page.getByPlaceholder('What would you like help with?');
   await composer.fill('Continue with the budget after this.');
-  await page.getByRole('button', { name: 'Members', exact: true }).click();
+  await page.getByRole('complementary').getByRole('button', { name: 'Members', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Members', exact: true })).toBeVisible();
   await expect(composer).toBeHidden();
   await page.getByRole('button', { name: /Alex Example/ }).click();
@@ -159,8 +159,8 @@ test('budget preview survives exact review navigation and changes nothing before
   await expect(card.locator('.owner-before-after')).toContainText('$1.00'); await expect(card.locator('.owner-before-after')).toContainText('$2.50'); expect(state.budgetWrites).toHaveLength(0);
   await page.getByRole('button', {name:'Close dialog',exact:true}).click();
   await page.locator('[data-record-id="approval-one"]').getByRole('button', { name: 'Open review details' }).click();
-  await expect(page).toHaveURL(/#\/owner\/approvals\/approval-one\?conversation=owner-cards/); await expect(page.getByRole('heading', { name: 'Intake Assessment' })).toBeVisible();
-  await page.getByRole('button', { name: 'Back to conversation' }).click();
+  await expect(page).toHaveURL(/#\/assistant\/owner-cards/); await expect(page.getByRole('dialog', { name: 'Studio work panel' })).toBeVisible(); await expect(page.getByRole('heading', { name: 'Intake Assessment' })).toBeVisible();
+  await page.getByRole('button', { name: 'Continue conversation' }).click();
   await card.getByRole('button', {name:'Adjust budget'}).click();
   await expect(card.getByRole('spinbutton', { name: 'Total limit (USD)' })).toHaveValue('2.5'); await expect(card.getByRole('textbox', { name: 'Reason', exact: true })).toHaveValue('Allowance for the next reviewed comparison.');
   await card.getByRole('button', { name: 'Confirm budget change' }).click(); await expect(page.getByText('Budget limit updated: Studio budget.')).toBeVisible();

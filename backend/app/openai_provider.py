@@ -76,8 +76,17 @@ def decode_response(body, output_type):
             texts.append(content["text"])
     try:
         output = output_type.model_validate_json("".join(texts))
-    except ValueError:
-        raise ProviderFailure("The model output did not satisfy its schema.") from None
+    except ValueError as exc:
+        # Field names and validation codes aid diagnosis without logging model text.
+        errors = (
+            exc.errors(include_input=False, include_context=False, include_url=False)
+            if hasattr(exc, "errors")
+            else []
+        )
+        fields = ", ".join(".".join(map(str, e["loc"])) + ":" + e["type"] for e in errors[:5])
+        raise ProviderFailure(
+            "The model output did not satisfy its schema." + (" " + fields if fields else "")
+        ) from None
     if not isinstance(body.get("id"), str) or not body["id"] or not isinstance(body.get("usage"), dict):
         raise ProviderFailure("The model response is missing accounting metadata.")
     return ProviderResult(body["id"], output, body["usage"])

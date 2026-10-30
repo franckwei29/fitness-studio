@@ -27,3 +27,25 @@ test('owner supplies a reason before restoring a retained release',async({page})
  await expect(page.getByRole('button',{name:'Restore retained version'})).toHaveCount(0);
  expect(rollback.reason).toContain('evaluated baseline');expect(errors).toEqual([]);
 });
+
+test('pending release changes service only after the explicit publish click',async({page})=>{
+ const release:any={id:'release',fingerprint:'exact-version',status:'PendingApproval',reason:'Try evaluated Gemini',group_id:'canary',candidate:{role:'Coach',agent_version_id:'new',rollback_version_id:'old',observation_minutes:30,minimum_runs:3,error_threshold:1},execution:null};
+ let confirms=0;
+ await page.route('**/api/**',async route=>{
+ const path=new URL(route.request().url()).pathname;let data:unknown;
+ if(path==='/api/auth/me')data={user:{id:'owner',display_name:'Owner',role:'Owner'},csrf_token:'test'};
+ else if(path==='/api/owner/updates')data={needs_action:0,items:[]};
+ else if(path==='/api/conversations'||path==='/api/owner/approvals')data=[];
+ else if(path==='/api/owner/agent-versions')data={versions:[{id:'new',label:'Google Gemini',role:'Coach'},{id:'old',label:'GPT Luna',role:'Coach'}]};
+ else if(path==='/api/owner/groups')data=[{id:'canary',name:'Canary',version:1,member_count:3}];
+ else if(path==='/api/owner/releases')data=[release];
+ else if(path==='/api/owner/releases/release/confirm'){expect(route.request().postDataJSON()).toEqual({fingerprint:'exact-version'});confirms++;release.status='Canary';release.execution={group_version:2};data=release;}
+ else if(path.includes('/receipts'))data={recorded:false};
+ else throw Error('Unexpected fixture '+path);
+ await route.fulfill({json:data});});
+ await page.goto('/#/owner/releases/release');
+ await expect(page.getByRole('button',{name:'Confirm and publish to Canary'})).toBeVisible();expect(confirms).toBe(0);
+ await page.getByRole('button',{name:'Confirm and publish to Canary'}).click();
+ await expect(page.getByText('Owner approval recorded. The version is published and observation is in progress.')).toBeVisible();expect(confirms).toBe(1);
+ await expect(page.getByRole('button',{name:'Confirm and publish to Canary'})).toHaveCount(0);
+});

@@ -24,6 +24,7 @@ from app.member_experience import router as experience_router
 from app.models import LoginSession, User
 from app.notifications import router as notifications_router
 from app.operations import router as operations_router
+from app.owner_agent import router as owner_agent_router
 from app.owner_updates import router as owner_updates_router
 from app.owner_workspace import router as owner_workspace_router
 from app.plans import router as plans_router
@@ -173,3 +174,5 @@ app.include_router(workflows_router)
 
 
 app.include_router(member_actions_router)
+
+app.include_router(owner_agent_router)

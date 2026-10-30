@@ -16,3 +16,5 @@ playwright-report/
 *.egg-info/
 *.tsbuildinfo
 build/
+
+.idea/

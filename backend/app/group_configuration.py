@@ -5,11 +5,11 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.admission import fingerprint, view
 from app.database import transaction
-from app.models import Approval, AuditEvent, ChangeRequest, MemberGroup, User, now
+from app.models import Approval, AuditEvent, ChangeRequest, Member, MemberGroup, User, now
 from app.policy import PROFILE_FIELDS
 from app.security import owner
 
@@ -56,7 +56,30 @@ class Proposal(BaseModel):
 @router.get("/groups")
 def groups(user: User = Depends(owner)):
     with transaction() as db:
-        return [view(row) for row in db.scalars(select(MemberGroup).order_by(MemberGroup.name))]
+        from app.models import AgentVersion
+        from app.settings import get_settings
+
+        output = []
+        for row in db.scalars(select(MemberGroup).order_by(MemberGroup.name)):
+            models = {}
+            for role in ("Intake", "Coach", "Nutrition", "TechnicalManager"):
+                identifier = row.configuration.get("agent_versions", {}).get(role)
+                version = db.get(AgentVersion, identifier) if identifier else None
+                models[role] = (
+                    version.model
+                    if version
+                    else ("Unavailable" if identifier else get_settings().default_model)
+                )
+            output.append(
+                view(row)
+                | {
+                    "effective_models": models,
+                    "member_count": db.scalar(
+                        select(func.count()).select_from(Member).where(Member.group_id == row.id)
+                    ),
+                }
+            )
+        return output
 
 
 @router.get("/group-policy")

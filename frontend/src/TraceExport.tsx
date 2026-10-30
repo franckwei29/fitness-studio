@@ -19,8 +19,8 @@ export function TraceExport({id,fingerprint,configured,onChanged}:{id:string;fin
   }catch(e){setError((e as Error).message);}finally{setBusy(false);}}
   return <section aria-label="Trace export"><h3>Export operational evidence</h3>
     <p className="muted">The snapshot includes role, status, version references, token counts, and costs. Personal profile fields, conversation text, prompts, model output, credentials, and free-text diagnostic details are omitted.</p>
-    <button className="text-button" disabled={busy} onClick={download}>Download redacted trace (.json)</button>
-    <button className="text-button" disabled={busy||!configured||!fingerprint} onClick={publish}>Export snapshot to LangSmith</button>
+    <div className="action-group"><button className="text-button" disabled={busy} onClick={download}>Download redacted trace (.json)</button>
+    <button className="text-button" disabled={busy||!configured||!fingerprint} onClick={publish}>Export snapshot to LangSmith</button></div>
     {!configured&&<p className="muted">External tracing is not configured. Local download remains available.</p>}
     {error&&<p role="alert" className="error">{error}</p>}
     {result&&<div role="status"><p>{result.status}: {result.message}</p><p>Run ID: <code>{result.run_id}</code></p></div>}

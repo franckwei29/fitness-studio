@@ -35,6 +35,50 @@ def members(user: User = Depends(owner)):
         ]
 
 
+class MemberSelection(BaseModel):
+    member_id: str
+    expected_group_id: str
+
+
+class BulkAssignment(BaseModel):
+    group_id: str
+    expected_group_version: int = Field(ge=1)
+    members: list[MemberSelection] = Field(min_length=1)
+    reason: str = Field(min_length=1, max_length=1000)
+
+
+@router.post("/assign-group")
+def assign_members(body: BulkAssignment, user: User = Depends(owner)):
+    from app.database import atomic_business_transaction
+
+    identifiers = [entry.member_id for entry in body.members]
+    if len(set(identifiers)) != len(identifiers):
+        raise HTTPException(422, "Select each member only once.")
+    with atomic_business_transaction() as db:
+        policy_lock(db)
+        group = db.scalar(select(MemberGroup).where(MemberGroup.id == body.group_id).with_for_update())
+        if not group:
+            raise HTTPException(404, "Group not found.")
+        if group.version != body.expected_group_version:
+            raise HTTPException(409, "Target group settings changed. Review the assignment again.")
+        receipts = [
+            assign_group(
+                entry.member_id,
+                Assignment(
+                    group_id=body.group_id, expected_group_id=entry.expected_group_id, reason=body.reason
+                ),
+                user,
+            )
+            for entry in sorted(body.members, key=lambda item: item.member_id)
+        ]
+        return {
+            "group_id": group.id,
+            "assigned_count": len(receipts),
+            "members": receipts,
+            "usage_unchanged": True,
+        }
+
+
 @router.get("/{identifier}")
 def member_detail(identifier: str, user: User = Depends(owner)):
     with transaction() as db:

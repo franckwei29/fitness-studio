@@ -28,6 +28,7 @@ from app.models import (
     now,
 )
 from app.security import principal
+from app.settings import get_settings
 
 router = APIRouter(prefix="/api")
 
@@ -280,6 +281,7 @@ class Submission(BaseModel):
     ] = "Chat"
     operations_group_id: str | None = None
     operations_ai: bool = False
+    owner_agent: bool = False
     incident_id: str | None = None
     action: (
         Literal[
@@ -311,6 +313,7 @@ def submit_message(identifier: str, body: Submission, user: User = Depends(princ
                 "purpose": body.purpose,
                 "operations_group_id": body.operations_group_id,
                 **({"operations_ai": True} if body.operations_ai else {}),
+                **({"owner_agent": True} if body.owner_agent else {}),
                 **(
                     {"action": body.action, "source_request_id": body.source_request_id}
                     if body.purpose == "Auto"
@@ -330,7 +333,7 @@ def submit_message(identifier: str, body: Submission, user: User = Depends(princ
             if previous.fingerprint != digest:
                 raise HTTPException(409, "This submission key was used for different content.")
             return previous.result
-        if body.operations_ai and (user.role != "Owner" or body.purpose != "Operations"):
+        if (body.operations_ai or body.owner_agent) and (user.role != "Owner" or body.purpose != "Operations"):
             raise HTTPException(403, "AI operations analysis requires an owner operations request.")
         if body.purpose == "Auto":
             from app.intent_router import submit_auto
@@ -364,6 +367,7 @@ def submit_message(identifier: str, body: Submission, user: User = Depends(princ
             and body.purpose == "Operations"
             and not body.incident_id
             and not body.operations_ai
+            and not (body.owner_agent and get_settings().model_calls_enabled)
         ):
             from app.owner_workspace import submit_owner_message
 
@@ -408,6 +412,7 @@ def submit_message(identifier: str, body: Submission, user: User = Depends(princ
                 "role": role,
                 "operations_group_id": operations_group.id if operations_group else None,
                 "requested_purpose": body.purpose,
+                "owner_agent": body.owner_agent,
                 **({"incident_id": body.incident_id} if body.incident_id else {}),
                 **({"plan_baseline": baseline} if baseline is not None else {}),
             },

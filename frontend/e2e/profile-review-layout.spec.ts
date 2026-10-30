@@ -1,0 +1,22 @@
+import {test,expect} from '@playwright/test';
+for(const width of [320,390,768,1440])for(const saved of [false,true])test(`profile review geometry ${width} saved=${saved}`,async({page})=>{
+ await page.setViewportSize({width,height:1000});
+ const facts={age:24,goal:'Build basic strength and a consistent exercise routine with clear beginner instructions.',experience:'Beginner',available_days:3,session_minutes:30,equipment:['Stable chair'],dietary_restrictions:['Milk'],prescribed_exercise:false,prescribed_nutrition:false,medical_supervision:false,pregnancy_postpartum:false,postoperative_acute_injury:false,resolved_past_injury:false};
+ await page.route('**/api/**',async route=>{const p=new URL(route.request().url()).pathname;let data:any=[];
+ if(p.endsWith('/events'))return route.fulfill({contentType:'text/event-stream',body:': reconnect\n\n'});
+ if(p==='/api/auth/me')data={user:{id:'u',role:'Member',display_name:'Alex Demo'},csrf_token:'x'};
+ if(p==='/api/conversations')data=[{id:'c',title:'Your fitness journey',active_role:'Intake'}];
+ if(p==='/api/conversations/c')data={conversation:{id:'c',title:'Your fitness journey',active_role:'Intake'},messages:[{id:'m',sender:'Intake',content:'Please check your details.',cards:[{type:'IntakeReview'}]}],requests:[],workflows:[]};
+ if(p==='/api/me/profile')data={assessment:{id:'a',version:1,status:'Collecting',proposed_facts:facts,confirmed_facts:{}},snapshot:saved?{facts:{...facts,available_days:2}}:null,member:null};
+ await route.fulfill({json:data});});
+ await page.goto('/#/assistant/c');const card=page.locator('.profile-review-card');await expect(card).toBeVisible();
+ const icon=(await card.locator('.type-icon').boundingBox())!,title=(await card.locator('h3').boundingBox())!;
+ expect(title.x-icon.x-icon.width).toBeLessThan(25);expect(title.x).toBeGreaterThan(icon.x);
+ const confirm=card.getByRole('button',{name:'Confirm my details'});await expect(confirm).toBeDisabled();await card.getByRole('checkbox').check();await expect(confirm).toBeEnabled();
+ const consent=(await card.locator('.consent-row').boundingBox())!,actions=(await card.locator('.profile-review-actions').boundingBox())!;expect(actions.y-consent.y-consent.height).toBeGreaterThanOrEqual(16);
+ expect(await card.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ const outside=await card.evaluate(el=>{const r=el.getBoundingClientRect();return [...el.querySelectorAll('.profile-fact,button')].some(e=>{const b=e.getBoundingClientRect();return b.left<r.left||b.right>r.right+1;});});expect(outside).toBe(false);
+ expect((await confirm.boundingBox())!.height).toBeLessThan(100);
+ await page.setViewportSize({width,height:2800});await card.scrollIntoViewIfNeeded();
+ await card.screenshot({path:`../.local/profile-review-${width}-${saved}.png`});
+});

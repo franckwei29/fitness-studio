@@ -1,70 +1,101 @@
-import { test, expect } from '@playwright/test';
-
-// UI-only fixtures. These responses are not model quality or release evidence.
-test('owner reviews every comparison result before submitting quality ratings',async({page})=>{
- const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
- const candidate={id:'candidate',role:'Coach',label:'Candidate fixture',model:'test-model',prompt:'Fixture instructions',fingerprint:'fixture',configured_groups:[]};
- const run={id:'run',baseline_id:'baseline',candidate_id:'candidate',evidence_mode:'Live',status:'AwaitingReview',cases:[{key:'case-one'}],suite_version:'ui-fixture'};
- const results=['baseline','candidate'].map((id,index)=>({id:`result-${index}`,agent_version_id:id,case_key:'case-one',passed:true,latency_ms:10,checks:{violations:[]},output:{reply:'UI fixture response'}}));
- let submitted:any=null;
+import {test,expect} from '@playwright/test';
+// UI-only fixtures, not model quality evidence.
+for(const status of ['Completed','Incomplete'])test(`comparison ${status}: no ratings and explicit decision`,async({page})=>{
+ const candidate={id:'candidate',role:'Coach',label:'Gemini trial',model:'gemini-test',prompt:'Fixture',fingerprint:'fixture',configured_groups:[]};
+ const run={id:'run',baseline_id:'current',candidate_id:'candidate',evidence_mode:'Live',status,cases:[{key:'case-one'}],suite_version:'fixture'};
+ let proposals=0;
  await page.route('**/api/**',async route=>{
-  const url=new URL(route.request().url()).pathname;
-  let data:unknown;
-  if(new URL(route.request().url()).pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
-  if(url==='/api/auth/me')data={user:{id:'owner',display_name:'Fixture Owner',role:'Owner'},csrf_token:'test-csrf'};
-  else if(url==='/api/conversations')data=[];
-  else if(url==='/api/owner/groups')data=[];
-  else if(url==='/api/owner/agent-versions')data={default_model:'test-model',versions:[candidate]};
-  else if(url.endsWith('/evaluations/run/review')){
-   submitted=route.request().postDataJSON();run.status='Reviewed';data=run;
-  }else if(url.endsWith('/evaluations/run'))data={run,results,tasks:[],usage:{calls:2,settled_micros:20,unknown_calls:0}};
-  else if(url.endsWith('/evaluations'))data=[run];
-  else throw new Error(`Unexpected API request in isolated UI test: ${url}`);
-  await route.fulfill({json:data});
- });
- await page.goto('/');
- await page.getByRole('button',{name:'Agent versions',exact:true}).click();
- await page.locator('summary').filter({hasText:'Candidate fixture'}).click();
- await page.getByRole('button',{name:'Load comparisons'}).click();
- await page.getByRole('button',{name:/Live · Awaiting Review/}).click();
- await expect(page.getByRole('heading',{name:'Review explanation quality'})).toBeVisible();
- await page.getByRole('button',{name:'Submit quality review'}).click();
- expect(submitted).toBeNull();
- await expect(page.getByRole('combobox',{name:'Explanation quality',exact:true})).toHaveCount(2);
- for(const select of await page.getByRole('combobox',{name:'Explanation quality',exact:true}).all()){
-  await expect(select).toHaveValue('');await select.selectOption('4');
- }
- for(const select of await page.getByLabel("Is the response factual and within the agent's role?").all())await select.selectOption('yes');
- for(const notes of await page.getByLabel('Review notes',{exact:true}).all())await notes.fill('The response respects the supplied evidence and role boundaries.');
- await page.getByRole('button',{name:'Submit quality review'}).click();
- await expect(page.getByText('Evidence: Live. Status: Reviewed.')).toBeVisible();
- expect(submitted.ratings).toHaveLength(2);
- expect(submitted.ratings[0]).toMatchObject({result_id:'result-0',explanation_quality:4,factual_and_role_compliant:true});
- expect(errors).toEqual([]);
+ const path=new URL(route.request().url()).pathname;let data:unknown;
+ if(path==='/api/auth/me')data={user:{id:'owner',display_name:'Owner',role:'Owner'},csrf_token:'fixture'};
+ else if(path==='/api/owner/updates')data={needs_action:0,items:[]};
+ else if(path==='/api/conversations')data=[];
+ else if(path==='/api/owner/groups')data=[{id:'canary',name:'Canary',version:1}];
+ else if(path==='/api/owner/agent-versions')data={default_model:'luna-test',versions:[candidate]};
+ else if(path.endsWith('/evaluations/run'))data={run,models:['current','candidate'].map((id,i)=>({version_id:id,model:i?'gemini-test':'luna-test',provider:i?'gemini':'openai',passed:1,expected:1,recorded:1,average_latency_ms:1000,average_cost_micros:status==='Completed'?10:null})),results:['current','candidate'].map(id=>({id,agent_version_id:id,case_key:'case-one',passed:true,checks:{violations:[]},output:{explanation:'An understandable plan.'}})),tasks:[],usage:{calls:2,settled_micros:20,unknown_calls:0}};
+ else if(path.endsWith('/evaluations'))data=[run];
+ else if(path==='/api/owner/releases'&&route.request().method()==='POST'){proposals++;data={id:'release'};}
+ else if(path.includes('/receipts'))data={recorded:false};
+ else throw Error('Unexpected fixture '+path);
+ await route.fulfill({json:data});});
+ await page.goto('/#/owner/versions/candidate?section=evaluation:run');
+ await expect(page.getByRole('heading',{name:'Model comparison',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Submit quality review'})).toHaveCount(0);
+ await page.getByText('Compare plan example · case-one').click();
+ await expect(page.getByText('An understandable plan.',{exact:true})).toHaveCount(2);
+ if(status==='Completed'){
+ expect(proposals).toBe(0);await page.getByRole('button',{name:'Prepare Canary release'}).click();
+ await expect(page.getByRole('button',{name:'Review release and confirm'})).toBeVisible();expect(proposals).toBe(1);
+ }else{await expect(page.getByRole('button',{name:'Prepare Canary release'})).toHaveCount(0);await expect(page.getByText('Awaiting complete costs')).toHaveCount(2);}
+ await page.setViewportSize({width:390,height:844});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+ await page.screenshot({path:`../.local/model-comparison-${status}.png`,fullPage:true});
 });
 
-test('incomplete comparison retains evidence but cannot be reviewed or restarted', async ({ page }) => {
-  const candidate = { id: 'candidate', role: 'Coach', label: 'Incomplete fixture', model: 'test-model', prompt: 'Fixture', fingerprint: 'fixture', configured_groups: [] };
-  const run = { id: 'run', baseline_id: 'baseline', candidate_id: 'candidate', evidence_mode: 'Live', status: 'Incomplete', cases: [{ key: 'case-one' }], suite_version: 'fixture' };
-  await page.route('**/api/**', async route => {
-    const path = new URL(route.request().url()).pathname;
-    let data: unknown;
-    if(new URL(route.request().url()).pathname === '/api/owner/updates') { await route.fulfill({json:{needs_action:0,items:[]}}); return; }
-  if (path === '/api/auth/me') data = { user: { id: 'owner', display_name: 'Fixture Owner', role: 'Owner' }, csrf_token: 'test' };
-    else if (path === '/api/conversations' || path === '/api/owner/groups') data = [];
-    else if (path === '/api/owner/agent-versions') data = { default_model: 'test-model', versions: [candidate] };
-    else if (path.endsWith('/evaluations/run')) data = { run, results: [], tasks: [{ request_id: 'task', status: 'Cancelled', wait_reason: null }], usage: { calls: 1, settled_micros: 15, unknown_calls: 0 } };
-    else if (path.endsWith('/evaluations')) data = [run];
-    else throw new Error(`Unexpected request: ${path}`);
-    await route.fulfill({ json: data });
-  });
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Agent versions', exact: true }).click();
-  await page.locator('summary').filter({ hasText: 'Incomplete fixture' }).click();
-  await page.getByRole('button', { name: 'Load comparisons' }).click();
-  await page.getByRole('button', { name: /Live · Incomplete/ }).click();
-  await expect(page.getByRole('status')).toContainText('cannot support a release');
-  await expect(page.getByText('Recorded calls: 1. Settled cost: $0.000015. Unknown-usage calls: 0.')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Start .*call comparison/ })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Submit quality review' })).toHaveCount(0);
+test('several member assignments require confirmation',async({page})=>{
+ let saves=0;let body:any;
+ const members=Array.from({length:3},(_,i)=>({id:`m${i}`,display_name:`Member ${i+1}`,group_id:'default',status:'Accepted',profile_version:1}));
+ await page.route('**/api/**',async route=>{
+ const path=new URL(route.request().url()).pathname;let data:unknown;
+ if(path==='/api/auth/me')data={user:{id:'owner',display_name:'Owner',role:'Owner'},csrf_token:'fixture'};
+ else if(path==='/api/owner/updates')data={needs_action:0,items:[]};
+ else if(path==='/api/conversations')data=[];
+ else if(path==='/api/owner/groups')data=[{id:'default',name:'Default',version:1,configuration:{}},{id:'canary',name:'Canary',version:2,configuration:{}}];
+ else if(path==='/api/owner/members')data=members;
+ else if(path==='/api/owner/members/assign-group'){saves++;body=route.request().postDataJSON();data={assigned_count:body.members.length};}
+ else if(path.includes('/receipts'))data={recorded:false};
+ else throw Error('Unexpected fixture '+path);
+ await route.fulfill({json:data});});
+ await page.goto('/#/owner/members');
+ await page.getByText('Assign members to a service group',{exact:true}).click();
+ for(let i=1;i<=3;i++)await page.getByLabel(`Member ${i} · Default`,{exact:true}).check();
+ await page.getByLabel('Destination group').selectOption('canary');
+ await page.getByLabel('Reason',{exact:true}).fill('Try the evaluated Coach model');
+ await page.getByRole('button',{name:'Review assignments',exact:true}).click();expect(saves).toBe(0);
+ await expect(page.getByRole('heading',{name:'Confirm 3 member assignments'})).toBeVisible();
+ await page.getByRole('button',{name:'Confirm member assignments',exact:true}).click();
+ await expect(page.getByRole('status')).toContainText('3 member assignments saved');expect(body.members).toHaveLength(3);expect(body.expected_group_version).toBe(2);
+});
+
+test('fresh workshop prepares the effective Coach without saved versions',async({page})=>{
+ let prepared:any=null;
+ await page.route('**/api/**',async route=>{
+ const path=new URL(route.request().url()).pathname;let data:unknown;
+ if(path==='/api/auth/me')data={user:{id:'owner',display_name:'Owner',role:'Owner'},csrf_token:'fixture'};
+ else if(path==='/api/owner/updates')data={needs_action:0,items:[]};
+ else if(path==='/api/conversations')data=[];
+ else if(path==='/api/owner/groups')data=[{id:'canary',name:'Canary',version:1}];
+ else if(path==='/api/owner/agent-versions')data={default_model:'gpt-6-luna',default_provider:'openai',versions:[],models:[{id:'gemini-test',provider:'gemini',label:'Google Gemini',configured:true,reasoning:[]}]};
+ else if(path==='/api/owner/agent-versions/compare-current'){prepared=route.request().postDataJSON();data={id:'run',candidate_id:'candidate'};}
+ else if(path.includes('/receipts'))data={recorded:false};
+ else throw Error('Unexpected fixture '+path);
+ await route.fulfill({json:data});});
+ await page.goto('/#/owner/versions');
+ await page.getByRole('combobox',{name:'Model to compare',exact:true}).selectOption('gemini-test');
+ await page.getByRole('button',{name:'Prepare model comparison',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Open prepared comparison'})).toBeVisible();
+ expect(prepared).toEqual({group_id:'canary',role:'Coach',model:'gemini-test'});
+});
+
+test('keeping the current model records a decision without preparing a release',async({page})=>{
+ let kept=false;let releaseWrites=0;
+ const run:any={id:'run',baseline_id:'current',candidate_id:'candidate',evidence_mode:'Live',status:'Reviewed',cases:[],suite_version:'fixture',summary:{}};
+ await page.route('**/api/**',async route=>{
+ const path=new URL(route.request().url()).pathname;let data:unknown;
+ if(path==='/api/auth/me')data={user:{id:'owner',display_name:'Owner',role:'Owner'},csrf_token:'fixture'};
+ else if(path==='/api/owner/updates')data={needs_action:kept?0:1,items:[]};
+ else if(path==='/api/conversations'||path==='/api/owner/groups')data=[];
+ else if(path==='/api/owner/agent-versions')data={default_model:'luna',versions:[{id:'candidate',role:'Coach',label:'Gemini trial',model:'gemini',prompt:'Fixture',configured_groups:[]}]};
+ else if(path.endsWith('/evaluations/run/keep-current')){expect(route.request().postDataJSON()).toEqual({fingerprint:'exact-comparison'});kept=true;run.summary={owner_decision:{choice:'KeepCurrent'}};data=run;}
+ else if(path.endsWith('/evaluations/run'))data={run,decision_fingerprint:'exact-comparison',release:null,models:[],results:[],tasks:[],usage:{calls:0,settled_micros:0,unknown_calls:0}};
+ else if(path==='/api/owner/releases'){releaseWrites++;data={};}
+ else if(path.includes('/receipts'))data={recorded:false};
+ else throw Error('Unexpected fixture '+path);
+ await route.fulfill({json:data});});
+ await page.goto('/#/owner/versions/candidate?section=evaluation:run');
+ await page.getByRole('button',{name:'Keep current model',exact:true}).click();
+ await expect(page.getByRole('status')).toContainText('This comparison is resolved in Updates');
+ await expect(page.getByRole('button',{name:'Current model kept'})).toBeDisabled();
+ await page.reload();
+ await expect(page.getByRole('status')).toContainText('No service configuration was changed');
+ expect(releaseWrites).toBe(0);
 });

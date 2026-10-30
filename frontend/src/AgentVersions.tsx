@@ -1,3 +1,4 @@
+import { CurrentModelComparison } from './CurrentModelComparison';
 import type { OwnerTarget } from './ownerNavigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Cpu, KeyRound, SlidersHorizontal } from 'lucide-react';
@@ -23,6 +24,7 @@ export function AgentVersions({targetId,targetSection,onChanged}:{targetId?:stri
  return <section className="intake-page"><span className="eyebrow">AI CONFIGURATION</span><h1>Agent versions</h1><p className="muted">Choose the AI provider and model for each specialist. Save a candidate, evaluate it, then release it to a member group.</p>
  {error&&<p role="alert" className="error">{error}</p>}{notice&&<p role="status" className="assessment-status">{notice}</p>}
  {loading?<p role="status">Loading agent versions…</p>:missing?<p role="alert" className="error">This agent version is unavailable. No other version has been opened.</p>:data?<>
+ {!targetId&&<CurrentModelComparison models={models} onChanged={onChanged}/>}
  {!targetId&&<form className="intake-form model-configuration" onSubmit={create}><h2><SlidersHorizontal size={22}/> New candidate</h2>
  <div className="model-provider-grid">{['openai','gemini'].map(name=><div className={`model-provider-card ${provider===name?'selected':''}`} key={name}><Cpu size={22}/><strong>{name==='openai'?'OpenAI':'Google Gemini'}</strong><span><KeyRound size={14}/> {models.some(row=>row.provider===name&&row.configured)?'Configured':'Not configured'}</span></div>)}</div>
  <div className="model-field-grid"><label>Provider<select aria-label="Provider" name="provider" value={provider} onChange={e=>{setProvider(e.target.value);setModel(models.find(row=>row.provider===e.target.value)?.id||'');}}><option value="openai">OpenAI</option><option value="gemini">Google Gemini</option></select></label>

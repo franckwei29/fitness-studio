@@ -3,9 +3,9 @@ export type OwnerTarget = { page: Page; id?: string; section?: string };
 export type WorkspaceRoute = OwnerTarget & { conversation?: string };
 const pages: Page[] = ['chat', 'intake', 'approvals', 'plans', 'dashboard', 'notifications', 'groups', 'incidents', 'budgets', 'members', 'versions', 'releases', 'requests'];
 export const ownerPages: Page[] = ['approvals', 'dashboard', 'groups', 'incidents', 'budgets', 'members', 'versions', 'releases'];
-export function readRoute(): WorkspaceRoute {
+export function readRoute(hash = window.location.hash): WorkspaceRoute {
   try {
-    const [path, search = ''] = window.location.hash.slice(1).split('?');
+    const [path, search = ''] = hash.slice(1).split('?');
     const parts = path.split('/').filter(Boolean).map(decodeURIComponent);
     const params = new URLSearchParams(search);
     if (parts[0] === 'assistant') return { page: 'chat', conversation: parts[1] };
@@ -25,3 +25,8 @@ export function routeHash(target: OwnerTarget, conversation?: string): string {
   return path + (params.size ? `?${params}` : '');
 }
 export function notifyOwnerChange() { window.dispatchEvent(new Event('owner-workspace-changed')); }
+
+export function openOwnerRecord(target:OwnerTarget, conversation?:string) {
+ if(document.querySelector("[data-owner-panel]"))window.dispatchEvent(new CustomEvent("owner-panel-navigate",{detail:target}));
+ else window.location.hash=routeHash(target,conversation);
+}

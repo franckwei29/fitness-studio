@@ -22,7 +22,7 @@ Keep credentials in the server environment. API responses show only whether a pr
 
 ## Role configuration
 
-Open **Agent versions**. Choose Provider, Model, Agent role, Version label, Response limit, and (for Luna) Reasoning effort. Save the candidate, evaluate it against the current baseline, complete the existing quality review, and release through Canary before expansion. Saving alone neither calls a provider nor changes live member groups.
+Open **Agent versions**. Choose Provider, Model, Agent role, Version label, Response limit, and (for Luna) Reasoning effort. Save the candidate, evaluate it against the current baseline, inspect the recorded results, explicitly confirm publication, and release through Canary before expansion. Saving alone neither calls a provider nor changes live member groups.
 
 The model catalog is shared by server validation and the selector. New candidates explicitly store provider, output limit, and reasoning effort. Their immutable fingerprint covers model, role, prompt, and generation options. A provider/model mismatch is rejected. Provider identity is also recorded on each paid call.
 
@@ -76,3 +76,5 @@ No automatic provider fallback is enabled. A provider outage does not silently c
 - [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
 - [OpenAI prompt caching and usage calculation](https://developers.openai.com/api/docs/guides/prompt-caching)
 - [Google Gemini pricing](https://ai.google.dev/gemini-api/docs/pricing)
+
+Use **Compare with your current Coach** for a model-only comparison. This materializes the effective group version even before any Coach request and copies its full instructions. Per-result quality ratings are not a release gate. Automatic evidence checks and exact owner approval remain required.

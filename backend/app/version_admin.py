@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 
-from app.admission import view
+from app.admission import fingerprint, view
 from app.agent_versions import version_fingerprint
 from app.database import transaction
 from app.evaluation_records import prepare_evaluation, verify_evaluation_snapshot
@@ -17,6 +17,7 @@ from app.model_catalog import catalog, model_info, validate_options
 from app.models import (
     AgentVersion,
     AuditEvent,
+    ChangeRequest,
     EvaluationResult,
     EvaluationRun,
     MemberGroup,
@@ -87,6 +88,75 @@ def versions(user: User = Depends(owner)):
                 for row in rows
             ],
         }
+
+
+class CurrentModelComparison(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    group_id: str
+    role: Literal["Intake", "Coach", "Nutrition", "TechnicalManager"] = "Coach"
+    model: str
+
+
+@router.post("/compare-current", status_code=201)
+def compare_current(body: CurrentModelComparison, user: User = Depends(owner)):
+    """Materialize the effective version even before the first member request."""
+    from types import SimpleNamespace
+
+    from app.agent_versions import resolve_version
+
+    with transaction() as db:
+        db.scalar(select(User).where(User.id == user.id).with_for_update())
+        group = db.scalar(select(MemberGroup).where(MemberGroup.id == body.group_id).with_for_update())
+        if not group:
+            raise HTTPException(404, "Group not found.")
+        current = resolve_version(
+            db,
+            SimpleNamespace(input_versions={}, role=body.role),
+            {"group_id": group.id},
+            base_instruction(body.role),
+        )
+        if current.model == body.model:
+            raise HTTPException(422, "Choose a different model to compare with the current model.")
+        tokens = current.max_output_tokens or 2048
+        try:
+            info = model_info(body.model)
+            validate_options(body.model, info["provider"], tokens, None)
+            price_for(body.model)
+        except (ValueError, UsageUncertain) as exc:
+            raise HTTPException(422, str(exc)) from None
+        digest = version_fingerprint(body.role, body.model, current.prompt, tokens, None)
+        candidate = db.scalar(select(AgentVersion).where(AgentVersion.fingerprint == digest))
+        if not candidate:
+            candidate = AgentVersion(
+                role=body.role,
+                label=f"{body.role} · {body.model}"[:80],
+                model=body.model,
+                provider=info["provider"],
+                prompt=current.prompt,
+                max_output_tokens=tokens,
+                reasoning_effort=None,
+                fingerprint=digest,
+            )
+            db.add(candidate)
+            db.flush()
+        run = prepare_evaluation(
+            db, user.id, current.id, candidate.id, SUITE_VERSION, evaluation_cases(body.role), "Live"
+        )
+        run.summary = {"target_group_id": group.id, "target_group_version": group.version}
+        db.add(
+            AuditEvent(
+                actor_id=user.id,
+                event_type="evaluation.prepared",
+                subject_id=run.id,
+                details={
+                    "group_id": group.id,
+                    "baseline_id": current.id,
+                    "candidate_id": candidate.id,
+                    "evidence_mode": "Live",
+                },
+            )
+        )
+        return view(run) | {"planned_calls": len(run.cases) * 2}
 
 
 @router.get("/{identifier}")
@@ -200,6 +270,75 @@ def comparisons(identifier: str, user: User = Depends(owner)):
         ]
 
 
+def decision_fingerprint(run):
+    return fingerprint(
+        {
+            "id": run.id,
+            "status": run.status,
+            "baseline": run.baseline_fingerprint,
+            "candidate": run.candidate_fingerprint,
+            "suite": run.suite_fingerprint,
+        }
+    )
+
+
+def evaluation_release(db, run):
+    return db.scalar(
+        select(ChangeRequest)
+        .where(
+            ChangeRequest.kind == "AgentRelease",
+            ChangeRequest.candidate["evaluation_id"].as_string() == run.id,
+        )
+        .order_by(ChangeRequest.created_at.desc())
+        .limit(1)
+    )
+
+
+class KeepCurrentDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    fingerprint: str
+
+
+@router.post("/{identifier}/evaluations/{run_id}/keep-current")
+def keep_current(identifier: str, run_id: str, body: KeepCurrentDecision, user: User = Depends(owner)):
+    with transaction() as db:
+        run = db.scalar(select(EvaluationRun).where(EvaluationRun.id == run_id).with_for_update())
+        if not run or run.candidate_id != identifier:
+            raise HTTPException(404, "Evaluation not found.")
+        if run.status not in {
+            "Completed",
+            "AwaitingReview",
+            "Reviewed",
+            "Rejected",
+            "FailedChecks",
+            "Incomplete",
+        }:
+            raise HTTPException(409, "Wait until this comparison has finished.")
+        if decision_fingerprint(run) != body.fingerprint:
+            raise HTTPException(409, "The comparison changed. Refresh its results before deciding.")
+        if evaluation_release(db, run):
+            raise HTTPException(
+                409, "This comparison already has a release decision. Open its release record."
+            )
+        if (run.summary or {}).get("owner_decision", {}).get("choice") != "KeepCurrent":
+            run.summary = (run.summary or {}) | {
+                "owner_decision": {
+                    "choice": "KeepCurrent",
+                    "actor_id": user.id,
+                    "decided_at": now().isoformat(),
+                }
+            }
+            db.add(
+                AuditEvent(
+                    actor_id=user.id,
+                    event_type="evaluation.current_model_kept",
+                    subject_id=run.id,
+                    details={"fingerprint": body.fingerprint, "configuration_unchanged": True},
+                )
+            )
+        return view(run)
+
+
 @router.get("/{identifier}/evaluations/{run_id}")
 def comparison_detail(identifier: str, run_id: str, user: User = Depends(owner)):
     with transaction() as db:
@@ -218,7 +357,41 @@ def comparison_detail(identifier: str, run_id: str, user: User = Depends(owner))
             if request_ids
             else []
         )
+        models = []
+        for version_id in (run.baseline_id, run.candidate_id):
+            version = db.get(AgentVersion, version_id)
+            matching = [row for row in results if row.agent_version_id == version_id]
+            version_requests = {
+                task.request_id for task in tasks if task.input_versions.get("agent_version") == version_id
+            }
+            model_calls = [call for call in calls if call.request_id in version_requests]
+            settled = [
+                call for call in model_calls if call.status == "Settled" and call.actual_micros is not None
+            ]
+            complete = len(matching) == len(run.cases) and len(settled) == len(run.cases)
+            times = [row.latency_ms for row in matching if row.latency_ms is not None]
+            models.append(
+                {
+                    "version_id": version_id,
+                    "model": version.model,
+                    "provider": version.provider,
+                    "passed": sum(row.passed for row in matching),
+                    "expected": len(run.cases),
+                    "recorded": len(matching),
+                    "average_latency_ms": sum(times) / len(times) if times else None,
+                    "average_cost_micros": sum(call.actual_micros for call in settled) / len(settled)
+                    if complete and settled
+                    else None,
+                    "cost_complete": complete,
+                    "max_output_tokens": version.max_output_tokens,
+                    "reasoning_effort": version.reasoning_effort,
+                }
+            )
+        linked_release = evaluation_release(db, run)
         return {
+            "decision_fingerprint": decision_fingerprint(run),
+            "release": {"id": linked_release.id, "status": linked_release.status} if linked_release else None,
+            "models": models,
             "run": view(run),
             "results": [view(result) for result in results],
             "tasks": [
@@ -274,7 +447,7 @@ def start_comparison(identifier: str, run_id: str, user: User = Depends(owner)):
                     )
                 )
         run.status = "Running"
-        run.summary = {"request_ids": request_ids, "release_eligible": False}
+        run.summary = (run.summary or {}) | {"request_ids": request_ids, "release_eligible": False}
         db.add(
             AuditEvent(
                 actor_id=user.id,

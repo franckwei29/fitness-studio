@@ -20,7 +20,7 @@ The Sage Studio interface includes structured plan cards, business-oriented Acti
 
 ## Owner workflow
 
-The owner workspace provides a review queue, operational overview, member groups, membership administration, budget limits, incidents, agent versions, and agent releases. Candidate configuration changes require explicit review and execution. Agent releases require recorded live comparison evidence and quality review; synthetic test evidence cannot authorize a release.
+The owner workspace provides a review queue, operational overview, member groups, membership administration, budget limits, incidents, agent versions, and agent releases. Candidate configuration changes require explicit review and execution. Agent releases require recorded live comparison evidence and explicit owner approval; synthetic test evidence cannot authorize a release.
 
 The overview supports an inclusive UTC date range and a downloadable Markdown operations brief, defaulting to the latest seven days. Both use the same metric service. Candidate creation and successful activation are counted separately. Period costs follow the creation time of model-call records and their current settlement state; current membership and incident totals are explicitly labelled as current state.
 

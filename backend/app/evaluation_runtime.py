@@ -78,12 +78,13 @@ def run_evaluation(claim):
         event(db, request, "evaluation_case_completed", **request.result)
         rows = list(db.scalars(select(EvaluationResult).where(EvaluationResult.run_id == run.id)))
         if len(rows) == len(run.cases) * 2:
-            run.status = "AwaitingReview" if all(row.passed for row in rows) else "FailedChecks"
+            run.status = "Completed" if all(row.passed for row in rows) else "FailedChecks"
             run.completed_at = now()
             run.summary = (run.summary or {}) | {
                 "completed_cases": len(rows),
                 "passed_cases": sum(row.passed for row in rows),
-                "manual_review_required": True,
-                "release_eligible": False,
+                "manual_review_required": False,
+                "release_eligible": all(row.passed for row in rows),
+                "owner_approval_required": True,
             }
         return request.result

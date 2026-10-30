@@ -102,22 +102,10 @@ def test_successful_review_and_canary_execution(monkeypatch, owner_client):
     for request_id in start["summary"]["request_ids"]:
         assert run_once(request_id)
     detail = owner_client.get(f"{path}/{run['id']}").json()
-    assert detail["run"]["status"] == "AwaitingReview", detail
-    review = owner_client.post(
-        f"{path}/{run['id']}/review",
-        json={
-            "ratings": [
-                dict(
-                    result_id=r["id"],
-                    explanation_quality=4,
-                    factual_and_role_compliant=True,
-                    notes="Synthetic protocol verification, no live quality claim.",
-                )
-                for r in detail["results"]
-            ]
-        },
-    )
-    assert review.status_code == 200, review.text
+    assert detail["run"]["status"] == "Completed", detail
+    assert "quality_review" not in detail["run"]["summary"]
+    assert len(detail["models"]) == 2
+    assert all(model["cost_complete"] for model in detail["models"])
     group = next(g for g in owner_client.get("/api/owner/groups").json() if g["name"] == "Canary")
     from app.models import MemberGroup
 
@@ -140,11 +128,9 @@ def test_successful_review_and_canary_execution(monkeypatch, owner_client):
     assert proposal.status_code == 201, proposal.text
     release = proposal.json()
     endpoint = f"/api/owner/releases/{release['id']}"
-    response = owner_client.post(
-        endpoint + "/review", json=dict(decision="Approved", fingerprint=release["fingerprint"])
-    )
-    assert response.status_code == 200, response.text
-    applied = owner_client.post(endpoint + "/execute")
+    assert owner_client.post(endpoint + "/execute").status_code == 409
+    assert owner_client.post(endpoint + "/confirm", json={"fingerprint": "stale"}).status_code == 409
+    applied = owner_client.post(endpoint + "/confirm", json={"fingerprint": release["fingerprint"]})
     assert applied.status_code == 200, applied.text
     assert applied.json()["status"] == "Canary"
     assert owner_client.post(endpoint + "/execute").json() == applied.json()
@@ -200,6 +186,9 @@ def test_successful_review_and_canary_execution(monkeypatch, owner_client):
         db.add(target)
         db.flush()
         target_id = target.id
+    trial_rows = owner_client.get(endpoint + "/requests").json()
+    assert len(trial_rows) == 3
+    assert all(row["agent_version_id"] == versions[1] for row in trial_rows)
     monitor_canaries()
     with transaction() as db:
         assert db.get(ChangeRequest, release["id"]).status == "Observed"
@@ -239,6 +228,9 @@ def test_successful_review_and_canary_execution(monkeypatch, owner_client):
                 },
             )
         )
+    trial_rows = owner_client.get(endpoint + "/requests").json()
+    assert len(trial_rows) == 3
+    assert all(row["agent_version_id"] == versions[1] for row in trial_rows)
     monitor_canaries()
     with transaction() as db:
         assert db.get(ChangeRequest, release["id"]).status == "RolledBack"

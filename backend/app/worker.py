@@ -33,8 +33,14 @@ def record_failure(claim, reason, context=None):
 def execute(claim):
     try:
         with transaction() as db:
-            request_kind = db.get(Request, claim.request_id).kind
-        if request_kind == "Auto":
+            request_row = db.get(Request, claim.request_id)
+            request_kind = request_row.kind
+            is_owner_agent = request_row.payload.get("owner_agent", False)
+        if is_owner_agent and claim.role == "TechnicalManager":
+            from app.owner_agent import run_owner_agent
+
+            run_owner_agent(claim)
+        elif request_kind == "Auto":
             from app.intent_router import run_auto
 
             run_auto(claim)

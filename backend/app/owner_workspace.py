@@ -389,19 +389,27 @@ def workspace_items(db, area, user):
         ]
         for run in db.scalars(
             select(EvaluationRun).where(
-                EvaluationRun.status.in_(["AwaitingReview", "FailedChecks", "Reviewed", "Incomplete"])
+                EvaluationRun.status.in_(
+                    ["Completed", "AwaitingReview", "FailedChecks", "Reviewed", "Incomplete"]
+                )
             )
         ):
+            from app.version_admin import evaluation_release
+
+            if (run.summary or {}).get("owner_decision", {}).get(
+                "choice"
+            ) == "KeepCurrent" or evaluation_release(db, run):
+                continue
             items.append(
                 card(
                     run.id,
                     "Evaluation",
                     f"{run.role} evaluation · {run.status}",
                     run.status,
-                    "Open the comparison evidence and human quality ratings before considering a release.",
+                    "Compare the recorded results. Only your explicit release approval can change member service.",
                     "versions",
                     section=f"evaluation:{run.id}",
-                    responsibility="owner_review" if run.status == "AwaitingReview" else "waiting_for_member",
+                    responsibility="owner_review",
                     created_at=run.created_at,
                 )
             )

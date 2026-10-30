@@ -2,6 +2,7 @@
 
 import logging
 from contextlib import contextmanager
+from contextvars import ContextVar
 from functools import lru_cache
 
 from sqlalchemy import create_engine
@@ -24,8 +25,26 @@ def engine():
     )
 
 
+_joined = ContextVar("owner_business_transaction", default=None)
+
+
+@contextmanager
+def atomic_business_transaction():
+    """Join existing domain handlers into one owner action + receipt commit."""
+    with transaction() as session:
+        token = _joined.set(session)
+        try:
+            yield session
+        finally:
+            _joined.reset(token)
+
+
 @contextmanager
 def transaction():
+    shared = _joined.get()
+    if shared is not None:
+        yield shared
+        return
     with Session(engine(), expire_on_commit=False) as session, session.begin():
         yield session
         resume = session.info.get("resume_waiting", False)

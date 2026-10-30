@@ -28,7 +28,7 @@ This extends the existing multi-role architecture. It does not make the Technica
 
 ## Existing owner-facing capability inventory and conversational access
 
-The inventory distinguishes existing business controls and their conversational entry points. Complex configuration, quality review, release and recovery forms remain on focused detail pages.
+The inventory distinguishes existing business controls and their conversational entry points. Complex configuration, comparison evidence, release and recovery forms remain on focused detail pages.
 
 | Area and source | Existing manual capabilities | Conversational access | Detail surface |
 |---|---|---|---|
@@ -43,7 +43,7 @@ The inventory distinguishes existing business controls and their conversational 
 | Incidents — `Incidents.tsx` | Inspect evidence; request AI analysis; choose recovery prerequisites; request recovery; verify recovery; close unresolved with notes | Open the exact incident with its prerequisites and next actions; explicit AI analysis continues in the same main conversation | Recovery checklist for several dependent configuration/release steps |
 | Agent candidates — `AgentVersions.tsx` | Save role/model/instruction candidates; inspect saved versions | Open candidate creation or an exact saved version, then save through its full instruction editor | Full instruction editor for long prompts; saving is not deployment |
 | Comparisons — `Evaluations.tsx` | Choose a baseline, prepare comparison, inspect results, explicitly start live comparison and refresh progress | Open the exact version or comparison; its existing controls prepare, preview call requirements and explicitly start work | Side-by-side response review; preparation itself makes no model call |
-| Quality review — `EvaluationReview.tsx` | Rate every result for explanation quality and factual/role compliance; submit notes | Link to the specific comparison and its per-result human quality review | Keep per-result human ratings in a comparison panel; do not invent ratings from a general chat approval |
+| Model comparison — `Evaluations.tsx` | Inspect per-model checks, time, cost and paired outputs | Explain recorded evidence; open exact examples in the conversation | No quality-score gate; explicit owner confirmation is required for publication |
 | Releases — `Releases.tsx` | Propose canary/expansion with reviewed live evidence and observation settings; execute an approved release; inspect observation; restore retained version | Open the exact release with its prerequisites, scope and separate approval, execution and rollback controls | Exact release detail for evidence, thresholds and observation history |
 | Blocked rollback — `RollbackRecovery.tsx` | Propose recovery against current configuration; then review and execute through existing flows | One linked recovery checklist retaining the original incident/release context | Exact recovery proposal, approval and execution target |
 | Evidence export — `TraceExport.tsx` | Download a redacted JSON trace; export a snapshot to LangSmith if configured | Open the exact redacted trace with local download and separately explicit external-export controls | Detailed redacted snapshot inspection; external export remains separately explicit |
@@ -103,7 +103,7 @@ Budget changes follow the same pattern: named scope, old/new USD limit, reason a
 
 Example: “Compare the new coach instructions and release them if appropriate.”
 
-The focused pages guide the sequence: prepare evidence → start a budgeted live comparison → human quality review → release proposal → owner approval → execution → observation. Reuse the existing required gates; a broad chat request does not mark them complete. Direct the owner to the exact comparison or release when detailed review is necessary, retain chat context, and return a status receipt to the conversation after each completed step.
+The focused pages guide the sequence: prepare evidence → start a budgeted live comparison → recorded results → release proposal → explicit owner confirmation and execution → observation. Reuse the existing required gates; a broad chat request does not mark them complete. Direct the owner to the exact comparison or release when detailed review is necessary, retain chat context, and return a status receipt to the conversation after each completed step.
 
 Chat remains a single Studio assistant persona. Internal domain handlers do not need visible role switching on every administrative action.
 
@@ -131,7 +131,7 @@ Chat remains a single Studio assistant persona. Internal domain handlers do not 
 
 - **First:** attention query, separation of owner/member responsibility, exact approval-detail navigation, local evidence drawer, inline intake/plan review decisions and synchronized receipts.
 - **Second:** reports/downloads, group reassignment, budget preview/confirmation, personal cancellation and incident details.
-- **Third:** complex configuration, field permissions, comparison/quality review, release/rollback/recovery and optional external export guidance.
+- **Third:** complex configuration, field permissions, comparison evidence, release/rollback/recovery and optional external export guidance.
 
 Every inventory area has a conversational entry point. Completing every form inside message bubbles is not necessary; the objective is to remove manual searching while preserving readable evidence and deliberate decisions.
 
@@ -164,7 +164,7 @@ Backend grounding: `conversation_runtime.py` (operations context), `policy.py` (
 - Ordinary owner lookup, evidence inspection and action preview are deterministic local operations and consume no model calls. The UI never treats a general phrase such as “looks fine” as a decision.
 - Explicit budget amounts and uniquely named destination groups may prefill a preview. The final labelled button is still required.
 - Simple inline controls cover review decisions, member-group changes, budget changes, notification reading, own activity cancellation, eligible uncertain-slot release and applying an eligible approved configuration.
-- Candidate creation, field-permission editing, comparison ratings, releases, incident recovery and evidence export use the existing focused forms. All actions remain subject to the original service guards.
+- Candidate creation, field-permission editing, comparison evidence, releases, incident recovery and evidence export use the existing focused forms. All actions remain subject to the original service guards.
 - Receipts are generated from authenticated owner audit events and deduplicated by audit ID. Failed writes refresh the current record without creating a success receipt.
 - Workspace cards paginate by offset. Card status refreshes every 15 seconds and after a successful action. Approval remarks, chat drafts and inline form drafts survive return navigation; drafts are stored for the current browser session.
 - GitHub publication provides source code. The acceptance deployment runs locally at port 8091.

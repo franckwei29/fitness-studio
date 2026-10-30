@@ -1,0 +1,228 @@
+/* Shared interaction system. Loaded after legacy page styles. */
+:root {
+  --control-surface: #ffffff;
+  --control-soft: #f1f6f1;
+  --control-ink: #294e3d;
+  --control-border: #b8cdbf;
+  --control-primary: #315d46;
+  --control-primary-hover: #234b36;
+  --control-on-primary: #ffffff;
+  --control-focus: #79a993;
+  --control-danger: #973e43;
+  --control-danger-surface: #fff3f2;
+  --control-shadow: 0 2px 3px #193a2810, 0 5px 12px #193a2808;
+}
+button, a.primary, a.secondary, a.text-button {
+  border: 1px solid var(--control-border);
+  border-radius: 12px;
+  background: var(--control-surface);
+  color: var(--control-ink);
+  padding: 10px 16px;
+  min-height: 44px;
+  max-width: 100%;
+  font-weight: 600;
+  line-height: 1.4;
+  text-decoration: none;
+  transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+button.primary, a.primary {
+  background: var(--control-primary);
+  border-color: var(--control-primary);
+  color: var(--control-on-primary);
+  box-shadow: var(--control-shadow);
+}
+button.secondary, a.secondary {
+  background: var(--control-surface);
+  border-color: var(--control-border);
+  color: var(--control-ink);
+  box-shadow: 0 1px 2px #193a2808;
+}
+/* Secondary actions must remain recognisable as controls, never plain copy. */
+button.text-button, a.text-button,
+.intake-page .text-button, .studio-modal .text-button, .owner-work-dialog .text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--control-surface);
+  border: 1px solid var(--control-border);
+  color: var(--control-ink);
+  border-radius: 11px;
+  padding: 9px 14px;
+  min-height: 42px;
+  margin-block: 8px;
+  margin-inline: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  text-decoration: none;
+}
+@media (hover: hover) {
+  button:hover:not(:disabled), a:is(.primary,.secondary,.text-button):hover {
+    border-color: var(--control-focus);
+    background: var(--control-soft);
+    box-shadow: var(--control-shadow);
+  }
+  button.primary:hover:not(:disabled), a.primary:hover {
+    background: var(--control-primary-hover);
+    border-color: var(--control-primary-hover);
+    color: var(--control-on-primary);
+    box-shadow: 0 4px 12px #193a2826;
+  }
+}
+button:focus-visible, a:is(.primary,.secondary,.text-button):focus-visible {
+  outline: 3px solid var(--control-focus);
+  outline-offset: 3px;
+}
+button:disabled {
+  opacity: .56;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+button:active:not(:disabled) { transform: translateY(1px); }
+button svg, a:is(.primary,.secondary,.text-button) svg { flex-shrink: 0; }
+.action-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
+  margin-block: 16px 8px;
+}
+.action-group > :is(button,a.primary,a.secondary,a.text-button),
+.action-group > .action-group > :is(button,a) {
+  margin: 0;
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.action-group > .action-group { width: auto; margin: 0; }
+/* Existing grouped controls share the same rhythm. */
+.review-actions, .owner-task-actions, .draft-actions, .form-actions,
+.owner-agent-task footer > div, .owner-panel-discard, .confirmation-actions {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.comparison-decision .action-group { margin-top: 22px; }
+.comparison-decision .action-group > button { min-height: 46px; padding: 12px 18px; }
+/* Direct single actions need breathing room from surrounding content. */
+:is(.plan-card,.review-card,.evaluation-panel) > :is(button.primary,button.secondary) { margin-block: 8px; }
+button.danger, button.review-decision-action--rejected {
+  color: var(--control-danger);
+  background: var(--control-danger-surface);
+  border-color: #dca9aa;
+}
+button.danger:hover:not(:disabled) { background: #fbe1df; border-color: #be777b; }
+/* Preserve navigation and list-card semantics instead of making every row a pill. */
+.main-navigation .profile-nav, .workspace aside nav button {
+  border-color: transparent;
+  box-shadow: none;
+}
+.review-list > button { text-align: left; padding: 18px 20px; }
+.review-list > button:hover:not(:disabled) { border-color: var(--control-focus); }
+button.send { padding: 8px; width: 44px; height: 44px; flex-shrink: 0; }
+button[aria-label]:has(> svg:only-child), .owner-panel-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px;
+  min-width: 40px;
+  min-height: 40px;
+  flex-shrink: 0;
+}
+.owner-work-header > .text-button { flex-shrink: 0; }
+.owner-work-footer { gap: 14px; }
+.comparison-example > summary, .evaluation-panel > article > details > summary {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--control-soft);
+  border: 1px solid var(--control-border);
+  color: var(--control-ink);
+}
+@media (max-width: 600px) {
+  .action-group { gap: 10px; align-items: stretch; }
+  .action-group > :is(button,a.primary,a.secondary,a.text-button) { flex: 1 1 160px; }
+  .action-group > .action-group { flex: 1 1 100%; }
+  .comparison-decision { padding: 18px; }
+  .owner-work-header { flex-wrap: wrap; }
+  .owner-work-header > .text-button { margin: 0; }
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --control-surface: #23392e;
+    --control-soft: #2e493a;
+    --control-ink: #e0eee4;
+    --control-border: #607e6c;
+    --control-primary: #8bc6a5;
+    --control-primary-hover: #a4d9ba;
+    --control-on-primary: #162e20;
+    --control-focus: #a4d9ba;
+    --control-danger: #ffd1d2;
+    --control-danger-surface: #502d33;
+  }
+  .model-result-card { background: var(--control-surface); border-color: var(--control-border); }
+  .model-result-card dd, .model-result-card dt { color: var(--control-ink); }
+  .comparison-decision { background: #233d30; color: #e0eee4; }
+  button.danger:hover:not(:disabled) { background: #653740; }
+}
+@media (prefers-reduced-motion: reduce) {
+  button, a.primary, a.secondary, a.text-button { transition: none; }
+  button:active:not(:disabled) { transform: none; }
+}
+/* Compact notifications keep dismissal separate from the main action. */
+.updates-toast .action-group { width: auto; flex: 0 0 auto; margin: 0; gap: 10px; }
+.updates-toast .action-group > button { flex: 0 0 auto; border: 1px solid var(--control-border); padding: 10px 14px; background: var(--control-surface); }
+.updates-toast .action-group > button[aria-label] { width: 40px; min-height: 40px; padding: 6px; }
+select {
+  min-height: 42px;
+  max-width: 100%;
+  border: 1px solid var(--control-border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  background-color: var(--control-surface);
+  color: var(--control-ink);
+  font: inherit;
+}
+select:focus-visible { outline: 3px solid var(--control-focus); outline-offset: 2px; }
+@media (max-width: 600px) {
+  .updates-toast .action-group { width: 100%; flex-wrap: nowrap; }
+  .updates-toast .action-group > button:first-child { flex: 1 1 auto; }
+  .updates-toast .action-group > button[aria-label] { flex: 0 0 40px; }
+}
+/* Keep card headers independent of the conversation's page header. */
+.member-action-card > header { justify-content:flex-start; padding:0 0 20px; border-bottom:1px solid var(--sage-line); gap:14px; }
+.member-action-card > header > div { min-width:0; flex:1; }
+.member-action-card .type-icon { display:grid; place-items:center; width:44px; height:44px; flex:0 0 44px; border-radius:13px; background:var(--sage-soft); color:var(--sage-accent); }
+.member-action-card .type-icon svg { width:24px; height:24px; }
+.member-action-card,.owner-agent-task,.planning-task,.plan-card,.review-card { min-width:0; max-width:100%; }
+.table-wrap,.table-scroll { max-width:100%; overflow-x:auto; min-width:0; }
+th,td { white-space:normal; overflow-wrap:anywhere; vertical-align:top; }
+.profile-review-card { container-type:inline-size; }
+.profile-review-card .profile-review-intro { font-size:14px; color:var(--sage-muted); margin:0 0 20px; }
+.profile-review-card summary { padding:12px 0; font-size:15px; font-weight:600; cursor:pointer; }
+.profile-fact-list { border:1px solid var(--sage-line); border-radius:14px; overflow:hidden; margin-top:10px; }
+.profile-fact { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.7fr); gap:20px; padding:14px 18px; font-size:14px; line-height:1.6; }
+.profile-fact + .profile-fact { border-top:1px solid var(--sage-line); }
+.profile-fact > strong { font-weight:500; color:var(--sage-muted); }
+.profile-fact > div { min-width:0; display:flex; gap:16px; }
+.profile-fact span { min-width:0; flex:1; overflow-wrap:anywhere; }
+.profile-fact small { display:block; font-size:11px; font-weight:500; color:var(--sage-muted); margin-bottom:4px; }
+.profile-proposed { color:var(--sage-ink); font-weight:500; }
+.profile-previous { color:var(--sage-muted); }
+.profile-review-footer { border-top:1px solid var(--sage-line); margin-top:22px; padding-top:20px; }
+.consent-row { display:flex; align-items:flex-start; gap:12px; padding:14px; border-radius:12px; background:var(--sage-soft); font-size:14px; line-height:1.6; cursor:pointer; }
+.consent-row input { width:18px; height:18px; flex:0 0 18px; margin:3px 0 0; accent-color:var(--sage-accent); }
+.profile-review-actions { justify-content:flex-end; margin:18px 0 0; }
+@container (max-width:440px) {
+ .profile-fact { grid-template-columns:minmax(0,1fr); gap:5px; padding:12px 14px; }
+ .profile-review-actions { flex-direction:column-reverse; align-items:stretch; }
+ .profile-review-actions > button { width:100%; flex:none; }
+}
+@media(prefers-color-scheme:dark) { .member-action-card { background:var(--sage-panel); border-color:var(--sage-line); } }
+/* Column action stacks must not inherit the row's 160px flex basis. */
+.profile-review-card .action-group.profile-review-actions > button { flex: 0 0 auto; min-height: 44px; }
