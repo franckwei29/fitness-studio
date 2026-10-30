@@ -97,6 +97,7 @@ class ChatSession(Record, Base):
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
     active_role: Mapped[str] = mapped_column(String(30), default="Intake")
     title: Mapped[str] = mapped_column(String(160), default="Your fitness journey")
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class Message(Record, Base):

@@ -35,7 +35,7 @@ router = APIRouter(prefix="/api")
 def owned(db, model, identifier, user, lock=False):
     query = select(model).where(model.id == identifier, model.user_id == user.id)
     row = db.scalar(query.with_for_update() if lock else query)
-    if not row:
+    if not row or (model is ChatSession and row.deleted_at is not None):
         raise HTTPException(404, "Record not found.")
     return row
 
@@ -167,10 +167,72 @@ def conversations(user: User = Depends(principal)):
             view(row)
             for row in db.scalars(
                 select(ChatSession)
-                .where(ChatSession.user_id == user.id)
+                .where(ChatSession.user_id == user.id, ChatSession.deleted_at.is_(None))
                 .order_by(ChatSession.created_at.desc())
             )
         ]
+
+
+class ConversationTitle(BaseModel):
+    title: str = Field(min_length=1, max_length=160)
+
+
+@router.post("/conversations/{identifier}/rename")
+def rename_conversation(identifier: str, body: ConversationTitle, user: User = Depends(principal)):
+    title = body.title.strip()
+    if not title:
+        raise HTTPException(422, "Enter a conversation name.")
+    with transaction() as db:
+        session = owned(db, ChatSession, identifier, user, lock=True)
+        previous = session.title
+        session.title = title
+        db.add(
+            AuditEvent(
+                actor_id=user.id,
+                subject_id=session.id,
+                event_type="conversation.renamed",
+                details={"previous": previous, "title": title},
+            )
+        )
+        return {"id": session.id, "title": title}
+
+
+@router.post("/conversations/{identifier}/delete")
+def delete_conversation(identifier: str, user: User = Depends(principal)):
+    # Logical deletion preserves linked plans, accounting and audit evidence.
+    with transaction() as db:
+        session = db.scalar(
+            select(ChatSession)
+            .where(ChatSession.id == identifier, ChatSession.user_id == user.id)
+            .with_for_update()
+        )
+        if not session:
+            raise HTTPException(404, "Conversation not found.")
+        if session.deleted_at:
+            return {"deleted": True}
+        pending = db.scalar(
+            select(Request.id)
+            .where(
+                Request.session_id == identifier,
+                Request.status.in_(["Queued", "Running", "Waiting", "AwaitingConfirmation"]),
+            )
+            .limit(1)
+        )
+        if pending:
+            raise HTTPException(
+                409,
+                "This conversation has unfinished updates. Review or cancel them in Activity before deleting it.",
+            )
+        session.deleted_at = now()
+        db.add(
+            AuditEvent(
+                actor_id=user.id,
+                subject_id=session.id,
+                event_type="conversation.deleted",
+                details={"plans_and_accounting_retained": True},
+            )
+        )
+        return {"deleted": True}
 
 
 @router.get("/conversations/{identifier}")

@@ -83,3 +83,12 @@
 @media(prefers-reduced-motion:reduce){.updates-toast{animation:none}}
 
 .modal-symbol{display:grid;place-items:center;flex-shrink:0;width:44px;height:44px;background:#e6eddb;color:#446746;border-radius:14px}.studio-modal>header h2{flex:1}
+/* Conversation actions remain discoverable without hovering. */
+.conversation-row{display:flex;align-items:center;flex-wrap:wrap;position:relative;min-width:0}
+.workspace aside nav .conversation-row>button{flex:1;min-width:0;width:auto}
+.conversation-row>button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conversation-menu{flex:0 0 36px}
+.workspace aside nav .conversation-more{padding:8px;width:36px;justify-content:center}
+.conversation-menu-actions{position:absolute;right:0;top:100%;z-index:20;min-width:145px;background:white;border:1px solid #dce4d6;border-radius:12px;box-shadow:0 8px 24px #20372b22;padding:6px}
+.workspace aside nav .conversation-menu-actions button{display:flex;gap:8px;width:100%;padding:10px}
+.conversation-menu .studio-modal{color:#203b32}
