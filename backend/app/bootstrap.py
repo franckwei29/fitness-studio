@@ -3,7 +3,7 @@
 from sqlalchemy import select
 
 from app.database import transaction
-from app.models import BudgetAccount, MemberGroup, User
+from app.models import MemberGroup, User
 from app.security import hash_password
 from app.settings import get_settings
 
@@ -37,9 +37,10 @@ def bootstrap():
         for name in ["Default", "Canary"]:
             if not db.scalar(select(MemberGroup).where(MemberGroup.name == name)):
                 db.add(MemberGroup(name=name, configuration=DEFAULT_CONFIGURATION))
-        if not db.scalar(select(BudgetAccount).where(BudgetAccount.scope_key == "global")):
-            db.add(BudgetAccount(scope_key="global", limit_micros=0))
         db.flush()
+        from app.budget_defaults import initialize_budgets
+
+        initialize_budgets(db)
         from app.call_limits import initialize
 
         initialize(db)

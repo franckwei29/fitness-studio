@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
+from app.budget_defaults import ensure_budget
 from app.database import transaction
 from app.models import (
     Approval,
@@ -81,6 +82,7 @@ def complete_admission(db, row, actor_id):
         db.add(CurrentPlans(member_id=member.id))
     else:
         member.profile_version += 1
+    ensure_budget(db, f"member:{member.id}")
     member.status = "Accepted"
     db.info["resume_waiting"] = True
     db.add(

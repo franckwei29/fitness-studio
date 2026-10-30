@@ -30,7 +30,7 @@ Run from the application root:
 docker compose -f compose.yaml -f compose.app.yaml up --build -d
 ```
 
-Open `http://localhost:8088`. Initialization applies migrations and creates the owner account, initial service groups, and a zero global model budget. API readiness requires the current migration revision and reachable Redis. Worker, scheduler, and web startup depend on a healthy API. MySQL and Redis data persist in named volumes.
+Open `http://localhost:8088`. Initialization applies migrations and creates the owner account, initial service groups, and a US$20 cumulative global budget and US$10 caps for each role and service group. New memberships receive a US$10 personal cap automatically; startup also creates missing caps for existing groups and members without changing saved limits, spending or reservations. API readiness requires the current migration revision and reachable Redis. Worker, scheduler, and web startup depend on a healthy API. MySQL and Redis data persist in named volumes.
 
 Sign in with the owner credentials from `.env`; members register their own accounts. Changing the environment owner password does not reset an existing account's password.
 

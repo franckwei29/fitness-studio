@@ -6,7 +6,7 @@ The interface and application text are English. Members can submit English or Ch
 
 ## Run locally
 
-Follow [Running Fitness Studio](docs/RUNNING.md) to configure the private environment and start the Docker services. The default browser entry point is **http://localhost:8088**. Model calls are disabled by default and require both server credentials and funded budget scopes.
+Follow [Running Fitness Studio](docs/RUNNING.md) to configure the private environment and start the Docker services. The default browser entry point is **http://localhost:8088**. Model calls are disabled by default and require server credentials and explicit enablement. Initial budgets are configured automatically: US$20 for the studio and US$10 for each role, group and new membership. Existing saved caps and usage are preserved.
 
 ## Member workflow
 
