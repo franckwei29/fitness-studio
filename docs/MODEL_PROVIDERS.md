@@ -32,15 +32,15 @@ Migration `d2401030a001` labels historical versions and calls as Gemini. Histori
 
 ## Quotas
 
-- Every provider/model has one studio-wide **100-call rolling 60-minute** allowance. Roles sharing that model share that allowance.
-- Every authenticated account has one **200-call rolling 24-hour** allowance across all providers and roles. Owners are also subject to the account gate; there is no hidden unlimited owner tier.
+- Every provider/model has one persistent studio-wide rolling 60-minute allowance, initially **100 calls**. Roles sharing that model share that allowance.
+- Each member inherits a per-person rolling 24-hour allowance from their group, initially **200 calls**, unless a personal override is set. Owner accounts have separate editable allowances; pre-membership accounts use the explicit initial rule. These daily counts are shared across all models.
 - Request-level attempt bounds, concurrency controls, and monetary budgets remain independent.
 - Each real outbound attempt counts, including a retry that dispatches again. Viewing saved data, deterministic owner lookups, saving a candidate, and reuse of a settled result do not count.
 - Proven undispatched cancellations return their hourly and account permits. Dispatched calls with uncertain outcomes retain usage and money holds for review.
 
 Redis Lua checks are atomic across workers. The legacy global ledger remains for replay detection and migration. Startup runs `app.quota_migration` before workers start, preserving recent account history and seeding provider/model hourly history without duplicating entries. Persistent Redis volumes must be retained during upgrades.
 
-The member Activity page shows the personal allowance and its recovery time. **Budget limits** shows owner-only model counters, credential availability, and the environment default. These are rolling windows, not midnight resets. Availability is a snapshot rather than a guarantee that every specialist's next request can acquire its role budget.
+The member Activity page shows the personal allowance and its recovery time. **AI usage & limits** shows editable model limits, member allowances and separate spending controls. Environment values seed missing policies at startup; saved database settings survive restarts and environment changes. See [call-limit controls](CALL_LIMITS.md). These are rolling windows, not midnight resets. Availability is a snapshot rather than a guarantee that every specialist's next request can acquire its role budget.
 
 ## Accounting
 

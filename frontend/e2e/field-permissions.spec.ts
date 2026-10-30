@@ -10,6 +10,7 @@ test('owner restricts field access through proposal, approval, and execution',as
     let data:unknown;
     if(path==='/api/auth/me')data={user:{id:'owner',display_name:'Demo Owner',role:'Owner'},csrf_token:'test'};
     else if(path==='/api/conversations')data=[];
+    else if(path==='/api/owner/call-limits/entry')data={scope_key:'group:group',label:'Default',calls:200,limit:200,version:1,fingerprint:'x'.repeat(64),applies_to:'Each member separately',source:'Group default',inheriting_members:1};
     else if(path==='/api/owner/groups')data=[group];
     else if(path==='/api/owner/group-policy')data={Coach:['age','goal'],TechnicalManager:[]};
     else if(path==='/api/owner/changes')data=change?[change]:[];

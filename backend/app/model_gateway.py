@@ -7,6 +7,7 @@ from app.admission import fingerprint
 from app.agent_contracts import CHAT_TASK_INSTRUCTION
 from app.agent_versions import verify_version
 from app.budget import cancel_undispatched, mark_dispatching, mark_unknown, reserve, settle
+from app.call_limits import dispatch_limits
 from app.database import transaction
 from app.gemini import GeminiTransport, ProviderFailure
 from app.model_catalog import model_info
@@ -15,7 +16,7 @@ from app.models import AgentVersion, AuditEvent, ModelCall
 from app.openai_provider import OpenAITransport
 from app.policy import PolicyDenied, execution_context
 from app.pricing import UsageUncertain, price_for
-from app.rate_limit import DispatchLimits, ModelRateLimiter
+from app.rate_limit import ModelRateLimiter
 from app.settings import get_settings
 from app.work_queue import lock_claim
 
@@ -84,31 +85,20 @@ def generate(claim, instruction, context, output_type, max_output_tokens=2048):
     granted = False
     dispatched = False
     try:
-        permit = gate.acquire(
-            call_id,
-            DispatchLimits(
-                settings.model_hourly_call_limit,
-                settings.model_account_daily_call_limit,
-                settings.model_concurrency_limit,
-            ),
-            request.user_id,
-            provider=provider,
-            model=model,
-        )
-        if permit != "Granted":
-            raise ModelUnavailable(
-                f"Model dispatch is waiting: {permit}.",
-                {"Hour": "HourlyCallLimit", "AccountDay": "AccountDailyCallLimit"}.get(
-                    permit, "ModelDispatchUnavailable"
-                ),
-            )
-        granted = True
         with transaction() as db:
-            item, request = lock_claim(db, claim)
-            execution_context(db, item, request)
-        if not mark_dispatching(call_id, claim=claim):
-            raise ModelUnavailable("This model call has already been dispatched.")
-        dispatched = True
+            limits = dispatch_limits(db, request.user_id, provider, model)
+            permit = gate.acquire(call_id, limits, request.user_id, provider=provider, model=model)
+            if permit != "Granted":
+                raise ModelUnavailable(
+                    f"Model dispatch is waiting: {permit}.",
+                    {"Hour": "HourlyCallLimit", "AccountDay": "AccountDailyCallLimit"}.get(
+                        permit, "ModelDispatchUnavailable"
+                    ),
+                )
+            granted = True
+            if not mark_dispatching(call_id, claim=claim):
+                raise ModelUnavailable("This model call has already been dispatched.")
+            dispatched = True
         try:
             transport = OpenAITransport if provider == "openai" else GeminiTransport
             result = transport(settings.credentials(provider)).send(payload, output_type)

@@ -671,6 +671,9 @@ def classify_intent(content):
 
 def submit_owner_message(db, session, body, user, digest):
     """Finish a local lookup durably, retaining the ordinary chat idempotency contract."""
+    from app.call_limit_chat import quota_card
+
+    quota = quota_card(db, body.content, user)
     area = classify_intent(body.content)
     areas = (
         [area]
@@ -757,6 +760,9 @@ def submit_owner_message(db, session, body, user, digest):
             "Choose a workspace below or tell me which record you want to work on."
         )
     )
+    if quota:
+        cards = [quota]
+        content = "Here are your AI call allowances." if quota["entries"] else quota["message"]
     incoming = Message(session_id=session.id, sender="User", content=body.content)
     reply = Message(session_id=session.id, sender="TechnicalManager", content=content, cards=cards)
     request = Request(
@@ -817,6 +823,7 @@ class ReceiptSubmission(BaseModel):
 
 
 RECEIPT_EVENTS = {
+    "call_limit.changed": "AI call allowance updated",
     "approval.decided": "Review decision recorded",
     "training.reviewed": "Training review recorded",
     "nutrition.reviewed": "Nutrition review recorded",
@@ -861,6 +868,11 @@ def receipt_subjects(db, target, user):
         if row:
             return [row.id], account_name(db, row.user_id)
     elif page == "budgets":
+        if target.section == "call-limit":
+            from app.call_limits import entry, row_for
+
+            rule = entry(db, identifier)
+            return [row_for(db, identifier).id], rule["label"]
         row = db.get(ModelCall if target.section == "unknown-usage" else BudgetAccount, identifier)
         if not row and target.section != "unknown-usage":
             row = db.scalar(select(BudgetAccount).where(BudgetAccount.scope_key == identifier))
@@ -977,6 +989,8 @@ def record_receipt(identifier: str, body: ReceiptSubmission, user: User = Depend
             outcome = detail.get("decision")
             if audit.event_type == "budget.limit_changed":
                 outcome = f"USD {detail['previous_limit_micros'] / 1_000_000:,.2f} → USD {detail['limit_micros'] / 1_000_000:,.2f}"
+            elif audit.event_type == "call_limit.changed":
+                outcome = f"{detail['previous_calls']} → {detail['calls']} calls · {detail['source']}"
             elif audit.event_type == "member.group_changed":
                 outcome = f"{group_name(db, detail.get('previous_group_id'))} → {group_name(db, detail.get('group_id'))}"
             elif audit.event_type == "trace.exported":

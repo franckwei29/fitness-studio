@@ -64,6 +64,13 @@ class Member(Record, Base):
     profile_version: Mapped[int] = mapped_column(Integer, default=1)
 
 
+class CallLimit(Record, Base):
+    __tablename__ = "call_limits"
+    scope_key: Mapped[str] = mapped_column(String(200), unique=True)
+    calls: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+
+
 class ProfileSnapshot(Record, Base):
     __tablename__ = "profile_snapshots"
     __table_args__ = (UniqueConstraint("member_id", "version"),)

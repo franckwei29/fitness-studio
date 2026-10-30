@@ -1,7 +1,8 @@
+import { AllowanceDetail } from './CallLimits';
 import type { OwnerTarget } from './ownerNavigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api } from './api';
-type Member = { id: string; display_name: string; status: string; group_id: string; profile_version: number };
+type Member = { id: string; display_name: string; status: string; group_id: string; profile_version: number; allowance?: {limit:number;source:string} };
 type Group = { id: string; name: string };
 export function Members({ targetId, onChanged }: { targetId?: string; targetSection?: string; onChanged?: (target?: OwnerTarget) => void }) {
   const [members, setMembers] = useState<Member[]>([]), [groups, setGroups] = useState<Group[]>([]), [selected, setSelected] = useState<Member | null>(null);
@@ -32,8 +33,9 @@ export function Members({ targetId, onChanged }: { targetId?: string; targetSect
     {loading ? <p role="status">Loading member details…</p> : selected ? <form className="intake-form plan-card" onSubmit={save}>
       <h2>{selected.display_name}</h2><p className="muted">{selected.status} · Profile context version {selected.profile_version}</p>
       <label>Service group<select value={group} onChange={e => setGroup(e.target.value)}>{groups.map(item => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
-      <label>Reason for reassignment<input value={reason} onChange={e => setReason(e.target.value)} required maxLength={1000} /></label>
+      <p className="muted">Daily AI allowance: {selected.allowance?.limit ?? 'See AI settings'} · {selected.allowance?.source}. A personal exception is retained when changing groups. Usage is not reset.</p><label>Reason for reassignment<input value={reason} onChange={e => setReason(e.target.value)} required maxLength={1000} /></label>
       <button className="primary" disabled={busy || group === selected.group_id}>{busy ? 'Saving assignment…' : 'Update member group'}</button><button className="text-button" type="button" onClick={() => setSelected(null)}>Back to members</button>
     </form> : targetId && error ? null : <div className="review-list">{!members.length ? <p className="muted">No accepted member profiles have been created.</p> : members.map(member => <button key={member.id} onClick={() => choose(member)}><span><strong>{member.display_name}</strong><small>{groups.find(item => item.id === member.group_id)?.name || 'Member group'} · Context version {member.profile_version}</small></span><span className="badge">{member.status}</span></button>)}</div>}
+    {selected&&<AllowanceDetail key={`${selected.id}:${selected.group_id}`} scope={`member:${selected.id}`} onChanged={onChanged}/>}
   </section>;
 }

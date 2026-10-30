@@ -39,6 +39,10 @@ def bootstrap():
                 db.add(MemberGroup(name=name, configuration=DEFAULT_CONFIGURATION))
         if not db.scalar(select(BudgetAccount).where(BudgetAccount.scope_key == "global")):
             db.add(BudgetAccount(scope_key="global", limit_micros=0))
+        db.flush()
+        from app.call_limits import initialize
+
+        initialize(db)
 
 
 if __name__ == "__main__":

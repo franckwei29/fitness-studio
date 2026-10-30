@@ -268,6 +268,7 @@ def summary(user: User = Depends(principal)):
 
 @router.get("/usage")
 def usage(user: User = Depends(principal)):
+    from app.call_limits import effective_account, entry, policy_lock, window_usage
     from app.model_catalog import catalog, model_info
     from app.models import AgentVersion
     from app.pricing import price_for
@@ -282,6 +283,9 @@ def usage(user: User = Depends(principal)):
             gate.account_key(user.id), stamp - 86400000 + 1, "+inf", withscores=True
         )
         with transaction() as db:
+            policy_lock(db)
+            allowance = effective_account(db, user.id)
+            account_limit = allowance["limit"]
             member = db.scalar(select(Member).where(Member.user_id == user.id))
             group = db.get(MemberGroup, member.group_id) if member else None
             selected = {settings.default_model}
@@ -291,36 +295,33 @@ def usage(user: User = Depends(principal)):
                     selected.add(version.model)
             model_usage = []
             for info in catalog(settings):
-                scores = connection.zrangebyscore(
-                    gate.model_key(info["provider"], info["id"]), stamp - 3600000 + 1, "+inf", withscores=True
+                rule = entry(db, f"model:{info['provider']}:{info['id']}")
+                counts = window_usage(
+                    connection, gate.model_key(info["provider"], info["id"]), 3600, rule["limit"], stamp
                 )
-                used = len(scores)
-                release_index = max(0, used - settings.model_hourly_call_limit)
-                next_at = (
-                    datetime.fromtimestamp((scores[release_index][1] + 3600000) / 1000, UTC).isoformat()
-                    if scores
-                    else None
-                )
-                model_usage.append(
-                    info
-                    | {"used": used, "limit": settings.model_hourly_call_limit, "next_capacity_at": next_at}
-                )
+                model_usage.append(info | counts | {"limit": rule["limit"]})
             relevant = [row for row in model_usage if row["id"] in selected]
             status, reason = "Available", None
+            blocking_scope = None
             if not settings.model_calls_enabled or not any(row["configured"] for row in relevant):
                 status, reason = (
                     "Unavailable",
                     "AI assistance is currently unavailable. Your saved plans remain available.",
                 )
-            elif len(day) >= settings.model_account_daily_call_limit:
+            elif len(day) >= account_limit:
                 status, reason = "Unavailable", "Your rolling 24-hour allowance is full."
+                blocking_scope = "AccountDay"
             elif relevant and all(not row["configured"] or row["used"] >= row["limit"] for row in relevant):
                 status, reason = (
                     "Unavailable",
-                    "The hourly AI allowance is full. Please try again when capacity returns.",
+                    "The studio-wide hourly allowance is full for "
+                    + ", ".join(row["label"] for row in relevant if row["configured"])
+                    + ". Please wait for capacity to return.",
                 )
+                blocking_scope = "ModelHour"
             elif connection.scard(gate.keys[2]) >= settings.model_concurrency_limit:
                 status, reason = "Busy", "AI assistance is busy. Please try again shortly."
+                blocking_scope = "Concurrency"
             scopes = ["global"] + ([f"group:{member.group_id}", f"member:{member.id}"] if member else [])
             accounts = list(db.scalars(select(BudgetAccount).where(BudgetAccount.scope_key.in_(scopes))))
             reservation = min(price_for(model).cost(8192, 2048) for model in selected)
@@ -328,7 +329,8 @@ def usage(user: User = Depends(principal)):
                 a.limit_micros - a.reserved_micros - a.spent_micros < reservation for a in accounts
             ):
                 status, reason = "Paused", "The studio needs to review the available AI budget."
-        release_index = max(0, len(day) - settings.model_account_daily_call_limit)
+                blocking_scope = "Spending"
+        release_index = max(0, len(day) - account_limit)
         next_at = (
             datetime.fromtimestamp((day[release_index][1] + 86400000) / 1000, UTC).isoformat()
             if day
@@ -336,14 +338,43 @@ def usage(user: User = Depends(principal)):
         )
         result = {
             "account_used": len(day),
-            "account_limit": settings.model_account_daily_call_limit,
+            "account_limit": account_limit,
+            "allowance_source": allowance["source"],
+            "group_name": allowance.get("group_name"),
             "account_window_seconds": 86400,
-            "shared_hourly_limit": settings.model_hourly_call_limit,
+            "shared_hourly_limit": next(
+                row["limit"] for row in model_usage if row["id"] == settings.default_model
+            ),
+            "model_limits": [
+                {
+                    "model": row["id"],
+                    "label": row["label"],
+                    "limit": row["limit"],
+                    "next_capacity_at": row["next_capacity_at"],
+                }
+                for row in relevant
+            ],
+            "model_next_capacity_at": min(
+                (
+                    row["next_capacity_at"]
+                    for row in relevant
+                    if row["configured"] and row["next_capacity_at"]
+                ),
+                default=None,
+            ),
             "next_capacity_at": next_at,
             "service_availability": status,
             "blocking_reason": reason,
+            "blocking_scope": blocking_scope,
             "observed_at": datetime.fromtimestamp(seconds, UTC).isoformat(),
         }
+        result["blocking_until"] = (
+            next_at
+            if blocking_scope == "AccountDay"
+            else result["model_next_capacity_at"]
+            if blocking_scope == "ModelHour"
+            else None
+        )
         if user.role == "Owner":
             result["model_usage"] = model_usage
             result["default_provider"] = model_info(settings.default_model)["provider"]

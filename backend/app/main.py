@@ -10,6 +10,7 @@ from app.access_audit import access_exception_handler
 from app.admission import router as admission_router
 from app.agent_release import router as release_router
 from app.budget_admin import router as budget_router
+from app.call_limits import router as call_limits_router
 from app.candidate_correction import router as correction_router
 from app.chat import router as chat_router
 from app.cycle_requests import router as cycle_router
@@ -144,6 +145,7 @@ app.include_router(group_router)
 app.include_router(incidents_router)
 
 app.include_router(budget_router)
+app.include_router(call_limits_router)
 
 app.include_router(member_admin_router)
 

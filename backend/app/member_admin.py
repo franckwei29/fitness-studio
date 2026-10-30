@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
+from app.call_limits import effective_account, policy_lock
 from app.database import transaction
 from app.models import AuditEvent, Member, MemberGroup, ProfileSnapshot, Request, RequestEvent, User, WorkItem
 from app.security import owner
@@ -28,6 +29,7 @@ def members(user: User = Depends(owner)):
                 "group_id": member.group_id,
                 "profile_version": member.profile_version,
                 "created_at": member.created_at,
+                "allowance": effective_account(db, account.id),
             }
             for member, account in rows
         ]
@@ -47,6 +49,7 @@ def member_detail(identifier: str, user: User = Depends(owner)):
             "group_id": member.group_id,
             "profile_version": member.profile_version,
             "created_at": member.created_at,
+            "allowance": effective_account(db, account.id),
         }
 
 
@@ -59,6 +62,7 @@ class Assignment(BaseModel):
 @router.post("/{identifier}/group")
 def assign_group(identifier: str, body: Assignment, user: User = Depends(owner)):
     with transaction() as db:
+        policy_lock(db)
         member = db.scalar(select(Member).where(Member.id == identifier).with_for_update())
         if not member:
             raise HTTPException(404, "Member not found.")
@@ -69,7 +73,13 @@ def assign_group(identifier: str, body: Assignment, user: User = Depends(owner))
             raise HTTPException(404, "Group not found.")
         previous = member.group_id
         if previous == group.id:
-            return {"member_id": member.id, "group_id": member.group_id, "status": member.status}
+            return {
+                "member_id": member.id,
+                "group_id": member.group_id,
+                "status": member.status,
+                "allowance": effective_account(db, member.user_id),
+                "usage_unchanged": True,
+            }
         snapshot = db.scalar(
             select(ProfileSnapshot).where(
                 ProfileSnapshot.member_id == member.id, ProfileSnapshot.version == member.profile_version
@@ -121,4 +131,10 @@ def assign_group(identifier: str, body: Assignment, user: User = Depends(owner))
                     payload={"status": "Waiting", "reason": "Member group changed."},
                 )
             )
-        return {"member_id": member.id, "group_id": member.group_id, "status": member.status}
+        return {
+            "member_id": member.id,
+            "group_id": member.group_id,
+            "status": member.status,
+            "allowance": effective_account(db, member.user_id),
+            "usage_unchanged": True,
+        }

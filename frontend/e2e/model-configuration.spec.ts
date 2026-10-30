@@ -6,6 +6,8 @@ for(const width of [390,1440])test(`provider configuration and model usage at ${
  if(path==='/api/auth/me')data={user:{id:'o',display_name:'Owner',role:'Owner'},csrf_token:'x'};
  else if(path==='/api/conversations'||path==='/api/notifications')data=[];
  else if(path==='/api/owner/agent-versions'){if(route.request().method()==='POST'){saved=route.request().postDataJSON();data={id:'v',...saved,prompt:'English output.',configured_groups:[]};}else data={default_model:'gpt-6-luna',default_provider:'openai',models,versions:[]};}
+ else if(path==='/api/owner/call-limits')data={models:models.map((row,i)=>({...row,model:row.id,scope_key:`model:${row.provider}:${row.id}`,calls:100,used:i?8:36,limit:100,version:1,fingerprint:'x'.repeat(64),source:'Studio model limit',applies_to:'All studio accounts'})),groups:[],members:[],total:0,owner:{scope_key:'owner:o',label:'Owner',calls:200,limit:200,version:1,fingerprint:'x'.repeat(64)},initial:{scope_key:'initial',label:'Initial account allowance',calls:200,limit:200,version:1,fingerprint:'x'.repeat(64)},default_model:'gpt-6-luna'};
+ else if(path==='/api/owner/members')data=[];
  else if(path==='/api/owner/budgets')data=[];
  else if(path==='/api/owner/unknown-usage')data=[];
  else if(path==='/api/me/usage')data={default_model:'gpt-6-luna',model_usage:models.map((row,i)=>({...row,used:i?8:36,limit:100,next_capacity_at:null}))};

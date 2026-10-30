@@ -24,7 +24,8 @@ async function ownerWorkspace(page: Page) {
       messages.push({ id: `user-${messages.length}`, sender: 'User', content: route.request().postDataJSON().content });
       messages.push({ id: `reply-${messages.length}`, sender: 'TechnicalManager', content: 'Your latest studio information is ready.', cards: [] });
       data = { request_id: `request-${messages.length}`, status: 'Completed' };
-    } else if (path === '/api/owner/members') data = [
+    } else if(path==='/api/owner/call-limits/entry')data={scope_key:'member:member-one',label:'Alex Example',calls:null,limit:200,group_limit:200,group_name:'Default',version:1,fingerprint:'x'.repeat(64),source:'Group default',applies_to:'This member only'};
+    else if (path === '/api/owner/members') data = [
       { id: 'member-one', display_name: 'Alex Example', status: 'Accepted', group_id: state.groupId, profile_version: state.groupWrites + 1 },
       { id: 'member-two', display_name: 'Robin Example', status: 'Accepted', group_id: 'default', profile_version: 1 },
     ];

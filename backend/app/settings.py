@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr = SecretStr("")
     openai_model: str = "gpt-6-luna"
     model_calls_enabled: bool = False
+    # Seed values only. Existing database call policies remain authoritative.
     model_hourly_call_limit: int = Field(default=100, ge=1)
     model_concurrency_limit: int = Field(default=1, ge=1)
     model_account_daily_call_limit: int = Field(default=200, ge=1)
