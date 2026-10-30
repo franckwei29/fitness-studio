@@ -87,6 +87,8 @@ def activity_view(db, request):
         "FoodSubstitution": "Your meal replacement",
         "Operations": "Studio analysis",
     }.get(request.kind, "Your update")
+    if request.payload.get("training_first"):
+        title = "Your training update · Meal compatibility review"
     if (request.payload or {}).get("local_lookup"):
         title = "Workspace lookup"
     status, detail, action = (
@@ -102,7 +104,9 @@ def activity_view(db, request):
             if request.kind == "Auto"
             else {
                 "Coach": "Coach is preparing your training.",
-                "Nutrition": "Nutrition Assistant is preparing your meals.",
+                "Nutrition": "Checking your existing meals against the training draft."
+                if request.payload.get("training_first")
+                else "Nutrition Assistant is preparing your meals.",
                 "Intake": "Front Desk is reviewing your details.",
             }.get(active.role if active else "", "Preparing your answer.")
         )

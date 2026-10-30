@@ -141,6 +141,8 @@ def request_view(db, row):
                 "pair_id",
                 "correction_work_id",
                 "generation_method",
+                "meal_changes",
+                "meal_review",
                 "call_id",
             }
         }
@@ -217,6 +219,7 @@ class Submission(BaseModel):
             "Intake",
             "ContinuePlanning",
             "AllowCombined",
+            "ReviseTrainingKeepMeals",
         ]
         | None
     ) = None

@@ -51,6 +51,10 @@ def generate(claim, instruction, context, output_type, max_output_tokens=2048):
             instruction += "\n" + AUTO_INSTRUCTION
         if request.kind == "Chat" and item.role in {"Coach", "Nutrition"}:
             instruction += CHAT_TASK_INSTRUCTION
+        if request.payload.get("training_first") and item.role == "Nutrition":
+            from app.nutrition_runtime import REVIEW_INSTRUCTION
+
+            instruction += "\n" + REVIEW_INSTRUCTION
         price = price_for(model)
         provider = model_info(model)["provider"]
         payload = build_payload(model, instruction, context, output_type, max_output_tokens, version=version)

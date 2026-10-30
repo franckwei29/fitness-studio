@@ -72,6 +72,14 @@ def revision_context(db, request, authorized, role):
             "profile_version": plan.profile_version,
             "content": plan.content,
         },
+        "meal_constraint": (
+            {
+                "instruction": "Keep the existing meals unchanged. Adapt training to this constraint; explain any unmet training goal without inventing medical energy requirements.",
+                "meals": db.get(PlanVersion, current.nutrition_id).content,
+            }
+            if request.payload.get("keep_meals") and current and current.nutrition_id
+            else None
+        ),
         "confirmed_feedback": [{"id": row.id, "kind": row.kind, "content": row.content} for row in feedback],
         "revision_instruction": "Use the previous plan and confirmed feedback as context. Follow the current confirmed profile constraints. Explain what changes and why; do not invent completion records.",
     }

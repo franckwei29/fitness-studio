@@ -43,7 +43,7 @@ def verify_cycle_activation(db, request, member_id):
 
 
 def complete_cycle(request, result):
-    if request.kind == "CycleReview":
+    if request.kind == "CycleReview" or request.payload.get("training_first"):
         request.status = "Completed"
         request.result = (request.result or {}) | {"status": "Completed", "activation": result}
 
@@ -108,6 +108,10 @@ def activate_pair(member_id, pair_id, request_id, actor_id, expected_current_ver
         if not current or current.version != expected_current_version:
             raise ActivationConflict("The current plans changed. Review the latest pair.")
         verify_cycle_activation(db, request, member_id)
+        if request.payload.get("training_first"):
+            from app.planning_context import verify_planning_baseline
+
+            verify_planning_baseline(db, request, member_id)
         pair = db.scalar(select(PlanPair).where(PlanPair.id == pair_id).with_for_update())
         if not pair or pair.member_id != member_id or pair.status != "Candidate":
             raise ActivationConflict("The candidate pair is unavailable.")

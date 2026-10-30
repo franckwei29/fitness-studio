@@ -143,7 +143,7 @@ def test_explicit_generation_delegates_without_changing_host(member, monkeypatch
     assert member.get("/api/me/activity").json()[0]["status"] == "Waiting to start"
 
 
-def test_linked_training_requires_scope_choice_and_replays_once(member, monkeypatch):
+def test_linked_training_generates_before_requesting_meal_decisions(member, monkeypatch):
     current_plans(member)
     synthetic(monkeypatch, IntentReply(intent="Training", reply="Shorter training.", keep_meals=True))
     conversation = member.post("/api/conversations").json()["id"]
@@ -151,15 +151,15 @@ def test_linked_training_requires_scope_choice_and_replays_once(member, monkeypa
     run_once(result["request_id"])
     with transaction() as db:
         source = db.get(Request, result["request_id"])
-        assert source.kind == "Auto" and source.result["pending_reason"] == "Coordination"
-    follow, body = send(
-        member, conversation, "Review both.", action="AllowCombined", source_request_id=result["request_id"]
-    )
-    assert member.post(f"/api/conversations/{conversation}/messages", json=body).json() == follow
-    with transaction() as db:
-        assert db.get(Request, follow["request_id"]).kind == "Combined"
-    rejected = member.post(f"/api/conversations/{conversation}/messages", json=body | {"key": str(uuid4())})
-    assert rejected.status_code == 409
+        assert source.kind == "Combined" and source.status == "Queued"
+        assert source.payload["training_first"] and source.payload["keep_meals"]
+        assert not (source.result or {}).get("needs_input")
+        assert (
+            db.scalar(
+                select(WorkItem).where(WorkItem.request_id == source.id, WorkItem.role == "Coach")
+            ).status
+            == "Queued"
+        )
 
 
 @pytest.mark.parametrize("end", ["Accepted", "Cancelled", "Expired"])
@@ -236,6 +236,11 @@ def test_declining_coordination_consumes_choice_without_new_work(member, monkeyp
     conversation = member.post("/api/conversations").json()["id"]
     result, _ = send(member, conversation)
     run_once(result["request_id"])
+    # Previously issued choices remain safely consumable after the routing change.
+    with transaction() as db:
+        source = db.get(Request, result["request_id"])
+        source.kind, source.status = "Auto", "AwaitingConfirmation"
+        source.result = {"pending_reason": "Coordination", "pending_goal": "Combined"}
     send(member, conversation, action="KeepChat", source_request_id=result["request_id"])
     response = member.post(
         f"/api/conversations/{conversation}/messages",
@@ -337,6 +342,6 @@ def test_declined_invitation_is_not_repeated_and_scope_choice_keeps_deadline(mem
         source = db.get(Request, result["request_id"])
         deadline = source.deadline
         assert source.payload["content"] == "Shorten training to twenty minutes."
-    follow, _ = send(member, conversation, action="AllowCombined", source_request_id=result["request_id"])
     with transaction() as db:
-        assert db.get(Request, follow["request_id"]).deadline == deadline
+        assert db.get(Request, result["request_id"]).deadline == deadline
+        assert db.get(Request, result["request_id"]).payload["training_first"]

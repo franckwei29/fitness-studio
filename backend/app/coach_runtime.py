@@ -199,7 +199,11 @@ def run_coach(claim):
                         )
                     )
                     result["status"] = "Queued"
-                    text += " Nutrition planning is next."
+                    text += (
+                        " We’ll now check your existing meals against this draft; nothing is active yet."
+                        if request.payload.get("training_first")
+                        else " Nutrition planning is next."
+                    )
                 item.status = "Completed"
             else:
                 result.update(queue_correction(db, item, request, plan))

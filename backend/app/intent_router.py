@@ -210,21 +210,12 @@ def apply_intent(db, request, item, decision):
             return
         current = db.get(CurrentPlans, member.id)
         if decision.intent == "Training" and current and current.nutrition_id:
-            publish(
-                db,
-                request,
-                item,
-                "Changing your training may affect the meals linked to it. Review both together, or keep your meals and discuss the training without changing it.",
-                [{"type": "CoordinationChoice", "request_id": request.id}],
-            )
-            request.result = request.result | {
-                "needs_input": True,
-                "pending_goal": "Combined",
-                "pending_reason": "Coordination",
-                "prompt": "Choose whether to review your training and meals together.",
+            # Generate training first; compatibility is assessed against the concrete draft.
+            request.payload = request.payload | {
+                "training_first": True,
+                "keep_meals": decision.keep_meals or request.payload.get("keep_meals", False),
             }
-            request.status = "AwaitingConfirmation"
-            return
+            decision = decision.model_copy(update={"intent": "Combined"})
         group = db.get(MemberGroup, member.group_id)
         capabilities = {
             "Training": ["training"],
@@ -462,6 +453,46 @@ def submit_auto(db, session, body, user):
                     raise HTTPException(409, "This choice is no longer available.")
                 source.result = source.result | {"continued": True, "scope_declined": True}
                 source.status = "Completed"
+        elif body.action == "ReviseTrainingKeepMeals":
+            source = db.scalar(
+                select(Request)
+                .where(
+                    Request.id == body.source_request_id,
+                    Request.user_id == user.id,
+                    Request.session_id == session.id,
+                )
+                .with_for_update()
+            )
+            if (
+                not source
+                or source.deadline <= now()
+                or source.status not in {"Completed", "AwaitingConfirmation"}
+                or not source.payload.get("training_first")
+                or not source.result.get("meal_changes")
+                or source.result.get("continued")
+            ):
+                raise HTTPException(409, "This review is no longer available. Open the latest plan draft.")
+            from app.models import PlanPair, PlanVersion
+
+            pair = db.get(PlanPair, source.result.get("pair_id"))
+            if not pair or pair.status != "Candidate":
+                raise HTTPException(409, "This plan has already changed. Review your current routine.")
+            from app.planning_context import verify_planning_baseline
+
+            verify_planning_baseline(db, source, pair.member_id)
+            training = db.get(PlanVersion, pair.training_id)
+            content = (
+                source.payload["content"]
+                + "\nKeep my current meals unchanged. Rework the proposed training to fit them. "
+                + "Explain any original training goal that cannot be met. Previous training draft: "
+                + str(training.content)
+            )
+            deadline = source.deadline
+            source.result = source.result | {"continued": True}
+            source.status = "Cancelled"
+            decision = IntentReply(
+                intent="Training", reply="Coach will revise the draft while keeping your meals unchanged."
+            )
         elif body.action in {"ContinuePlanning", "AllowCombined"}:
             source = db.scalar(
                 select(Request)
@@ -493,7 +524,14 @@ def submit_auto(db, session, body, user):
         session_id=session.id,
         kind="Auto",
         deadline=deadline,
-        payload={"content": content, "role": role, "speaker": role, "auto": True, "action": body.action},
+        payload={
+            "content": content,
+            "role": role,
+            "speaker": role,
+            "auto": True,
+            "action": body.action,
+            "keep_meals": body.action == "ReviseTrainingKeepMeals",
+        },
     )
     message = Message(session_id=session.id, sender="User", content=body.content)
     db.add_all([request, message])

@@ -1,11 +1,14 @@
 """Standalone or training-linked nutrition candidates with exact-context validation."""
 
+from copy import deepcopy
 from datetime import timedelta
+from typing import Literal
 
+from pydantic import Field
 from sqlalchemy import func, select
 
 from app.activation import PAIR_RULE_VERSION, pair_fingerprint, plan_fingerprint
-from app.agent_contracts import COMMON_INSTRUCTION
+from app.agent_contracts import COMMON_INSTRUCTION, StrictModel
 from app.agent_graph import graph_config, persistent_graph
 from app.agent_versions import resolve_version
 from app.candidate_correction import correction_context, queue_correction
@@ -53,6 +56,33 @@ that exact version and do not claim the pair is already active.
 )
 
 
+class MealCompatibilityReview(StrictModel):
+    decision: Literal["Retain", "SuggestChanges"]
+    explanation: str = Field(min_length=1, max_length=3000)
+    proposal: NutritionProposal
+
+
+REVIEW_INSTRUCTION = """
+First assess the existing meal example against the supplied new training draft and confirmed profile.
+Prefer Retain when no specific supported reason requires a meal change; a new training version alone is not a reason.
+Return Retain or SuggestChanges and explain the actual impact in plain language, including any uncertainty.
+For Retain, the application preserves existing meals exactly. For SuggestChanges, provide a concrete proposed meal draft
+and explain what changes and why. This is a suggestion only, never permission to activate anything.
+If keep_meals is true, assess the revised training under that constraint. If it still cannot be supported, explain why;
+do not pretend the conflict has been solved. Never claim clinically verified energy adequacy.
+"""
+
+
+def reviewed_proposal(review, previous, training_id):
+    if review.decision == "Retain":
+        content = deepcopy(previous["content"])
+        content.pop("nutrient_totals", None)
+        content["training_version_id"] = training_id
+        content["rationale"] = review.explanation
+        return NutritionProposal.model_validate(content)
+    return review.proposal
+
+
 def training_for(db, item, authorized, request):
     if item.subject_kind == "TrainingPlan":
         identifier = item.subject_id
@@ -83,6 +113,7 @@ def run_nutrition(claim):
             item, request = lock_claim(db, claim)
             authorized = execution_context(db, item, request)
             cycle_baseline(db, request, authorized["member_id"])
+            revision_context(db, request, authorized, "Nutrition")
             training = training_for(db, item, authorized, request)
             baseline = substitution_baseline(db, request, authorized["member_id"])
             allergens, tags = dietary_constraints(authorized["profile"].get("dietary_restrictions"))
@@ -97,6 +128,8 @@ def run_nutrition(claim):
             return {
                 "context": {
                     "profile": authorized["profile"],
+                    "training_first": request.payload.get("training_first", False),
+                    "keep_meals": request.payload.get("keep_meals", False),
                     "foods": foods,
                     "training_version_id": training.id if training else None,
                     "training": training.content if training else None,
@@ -123,6 +156,19 @@ def run_nutrition(claim):
         retained = state["context"].get("retained_nutrition")
         if retained:
             return {"candidate": {"proposal": retained["proposal"], "call_id": None, "retained": retained}}
+        context = state["context"]
+        if context.get("training_first") and context.get("previous_plan"):
+            review, call_id = generate(
+                claim, INSTRUCTION + REVIEW_INSTRUCTION, context, MealCompatibilityReview, 4096
+            )
+            output = reviewed_proposal(review, context["previous_plan"], context["training_version_id"])
+            return {
+                "candidate": {
+                    "proposal": output.model_dump(mode="json"),
+                    "call_id": call_id,
+                    "meal_review": {"decision": review.decision, "explanation": review.explanation},
+                }
+            }
         output, call_id = generate(claim, INSTRUCTION, state["context"], NutritionProposal, 4096)
         return {"candidate": {"proposal": output.model_dump(mode="json"), "call_id": call_id}}
 
@@ -148,6 +194,7 @@ def run_nutrition(claim):
             owner_review_context(db, request, authorized, "Nutrition")
             member = db.scalar(select(Member).where(Member.id == authorized["member_id"]).with_for_update())
             cycle_baseline(db, request, member.id)
+            revision_context(db, request, authorized, "Nutrition")
             training = training_for(db, item, authorized, request)
             baseline = substitution_baseline(db, request, authorized["member_id"])
             allergens, tags = dietary_constraints(authorized["profile"].get("dietary_restrictions"))
@@ -285,12 +332,35 @@ def run_nutrition(claim):
                 result.update(queue_correction(db, item, request, plan))
                 request.status = result["status"]
             item.lease_until = None
+            if request.payload.get("training_first") and validation["passed"]:
+                previous = state["context"].get("previous_plan")
+                result["meal_changes"] = bool(
+                    previous
+                    and NutritionProposal.model_validate(
+                        {k: v for k, v in previous["content"].items() if k != "nutrient_totals"}
+                    ).model_dump(mode="json")["meals"]
+                    != output.model_dump(mode="json")["meals"]
+                )
+                result["meal_review"] = state["candidate"].get("meal_review", {})
+                result["status"] = "AwaitingConfirmation"
+                request.status = "AwaitingConfirmation"
             request.result = result
             db.add(
                 Message(
                     session_id=request.session_id,
                     sender="Nutrition",
-                    content="Your plan pair is ready for review and confirmation."
+                    content=(
+                        (
+                            "Your training draft is ready. Suggested meal changes are shown for your review. "
+                            "Keep this training and review the meal suggestions, or ask Coach to adapt training while keeping your meals. "
+                            if result.get("meal_changes")
+                            else "Your training draft is ready. No meal changes are needed for this general plan review. Your existing meals will be retained. "
+                        )
+                        + result.get("meal_review", {}).get("explanation", "")
+                        + " Your current routine stays active until you confirm."
+                    )
+                    if pair and request.payload.get("training_first")
+                    else "Your plan pair is ready for review and confirmation."
                     if pair
                     else "Your standalone nutrition candidate is ready for review and confirmation."
                     if validation["passed"]
@@ -301,7 +371,13 @@ def run_nutrition(claim):
                     ),
                     cards=[
                         {
-                            "type": "PlanPairReview" if pair else "NutritionCandidate",
+                            "type": "TrainingMealReview"
+                            if pair and request.payload.get("training_first")
+                            else "PlanPairReview"
+                            if pair
+                            else "NutritionCandidate",
+                            "request_id": request.id,
+                            "meal_changes": result.get("meal_changes", False),
                             "pair_id": pair.id if pair else None,
                             "plan_id": plan.id,
                         }
