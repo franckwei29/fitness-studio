@@ -21,7 +21,7 @@ test('exact draft opens in modal without losing message input',async({page})=>{
  await page.goto('/#/assistant/c');await page.getByLabel('Message',{exact:true}).fill('Keep my draft message');await page.getByRole('button',{name:'Review draft plans'}).click();await expect(page.getByRole('dialog',{name:'Your plans'})).toBeVisible();await expect(page.getByRole('heading',{name:'Training draft',exact:true})).toBeVisible();await expect(page).toHaveURL(/#\/assistant\/c$/);await page.getByRole('button',{name:'Close dialog'}).click();await expect(page.getByLabel('Message',{exact:true})).toHaveValue('Keep my draft message');
 });
 test('profile confirmation stays inline and cannot be submitted twice',async({page})=>{
- let submitted=0;const facts={age:30,goal:'Build a routine',experience:'Beginner',available_days:2,session_minutes:30,equipment:['Dumbbells'],dietary_restrictions:[],prescribed_exercise:false,prescribed_nutrition:false,medical_supervision:false,pregnancy_postpartum:false,postoperative_acute_injury:false,resolved_past_injury:true};
+ let submitted=0;const facts={age:30,weight_kg:70.5,goal:'Build a routine',experience:'Beginner',available_days:2,session_minutes:30,equipment:['Dumbbells'],dietary_restrictions:[],prescribed_exercise:false,prescribed_nutrition:false,medical_supervision:false,pregnancy_postpartum:false,postoperative_acute_injury:false,resolved_past_injury:true};
  await page.route('**/api/**',async r=>{const p=new URL(r.request().url()).pathname;let data:any=[];
  if(p==='/api/auth/me')data={user:{id:'member',display_name:'Member',role:'Member'},csrf_token:'x'};
  if(p==='/api/conversations')data=[{id:'c',title:'Profile',active_role:'Intake'}];

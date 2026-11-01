@@ -1,0 +1,31 @@
+import {test,expect} from '@playwright/test';
+for(const width of [390,1440])test(`profile form has compact accessible choices and a single scroll area ${width}`,async({page})=>{
+ await page.setViewportSize({width,height:900});
+ await page.route('**/api/**',async route=>{
+  const p=new URL(route.request().url()).pathname;let data:any=[];
+  if(p.endsWith('/events'))return route.fulfill({contentType:'text/event-stream',body:': reconnect\n\n'});
+  if(p==='/api/auth/me')data={user:{id:'u',role:'Member',display_name:'Alex'},csrf_token:'x'};
+  if(p==='/api/conversations')data=[{id:'c',title:'Your fitness journey',active_role:'Intake'}];
+  if(p==='/api/conversations/c')data={conversation:{id:'c',title:'Your fitness journey',active_role:'Intake'},messages:[{id:'m',sender:'Intake',content:'Review your details.',cards:[{type:'IntakeReview'}]}],requests:[],workflows:[]};
+  if(p==='/api/me/profile')data={assessment:{id:'a',version:1,status:'Collecting',proposed_facts:{},confirmed_facts:{}},snapshot:null,member:null};
+  await route.fulfill({json:data});
+ });
+ await page.goto('/#/assistant/c');await page.getByRole('button',{name:'Edit details',exact:true}).click();
+ const dialog=page.getByRole('dialog');await expect(dialog).toBeVisible();
+ await expect(dialog.getByLabel('Weight (kg)',{exact:true})).toBeEmpty();
+ await expect(dialog.locator('input[type=radio]:checked')).toHaveCount(0);
+ await expect(dialog.getByText('0/6 answered')).toBeVisible();
+ const header=await dialog.locator(':scope > header').boundingBox();
+ const first=dialog.getByRole('group').first();await first.scrollIntoViewIfNeeded();
+ await first.getByText('No',{exact:true}).click();await expect(first.getByRole('radio',{name:'No',exact:true})).toBeChecked();
+ await expect(dialog.getByText('1/6 answered')).toBeVisible();
+ const yes=first.getByRole('radio',{name:'Yes',exact:true}),no=first.getByRole('radio',{name:'No',exact:true});
+ const y=(await yes.boundingBox())!,n=(await no.boundingBox())!;
+ expect(y.width).toBeLessThanOrEqual(20);expect(Math.abs(y.y-n.y)).toBeLessThan(2);
+ await no.focus();await page.keyboard.press('ArrowLeft');await expect(yes).toBeChecked();
+ await expect(dialog.getByText('1/6 answered')).toBeVisible();
+ const scrolls=await dialog.evaluate(el=>[...el.querySelectorAll('*')].filter(x=>x.scrollHeight>x.clientHeight+2&&['auto','scroll'].includes(getComputedStyle(x).overflowY)).length);
+ expect(scrolls).toBe(1);expect((await dialog.locator(':scope > header').boundingBox())!.y).toBe(header!.y);
+ expect(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+ await dialog.screenshot({path:`../.local/profile-form-${width}.png`});
+});

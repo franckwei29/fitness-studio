@@ -79,6 +79,7 @@ def test_training_first_drafts_then_decides(member, monkeypatch, decision):
             return output, call.id
 
     monkeypatch.setattr("app.coach_runtime.generate", generate)
+    monkeypatch.setattr("app.catalogue_resolver.requested_queries", lambda *args: [])
     monkeypatch.setattr("app.nutrition_runtime.generate", generate)
     conversation = member.post("/api/conversations").json()["id"]
     result, _ = send(member, conversation, "Make training easier, within 30 minutes.")

@@ -5,7 +5,7 @@ from copy import deepcopy
 from pydantic import ValidationError
 
 from app.activation import plan_fingerprint
-from app.catalogue import food_catalogue
+from app.catalogue import plan_catalogue, proposal_content
 from app.dietary_policy import dietary_constraints
 from app.models import CurrentPlans, PlanVersion
 from app.nutrition import NutritionProposal, validate_nutrition
@@ -45,15 +45,21 @@ def retained_nutrition(db, request, authorized, training):
         "Existing meal content retained for an unchanged maintenance training cycle; current dietary constraints and the exact new training reference were revalidated."
     )
     try:
-        proposal = NutritionProposal.model_validate(content)
+        proposal = NutritionProposal.model_validate(proposal_content(content))
     except ValidationError:
         return None
     allergens, tags = dietary_constraints(authorized["profile"].get("dietary_restrictions"))
-    validation = validate_nutrition(proposal, food_catalogue(), training.id, allergens, tags)
+    validation = validate_nutrition(
+        proposal, plan_catalogue(previous_nutrition.content, "food"), training.id, allergens, tags
+    )
     if not validation["passed"]:
         return None
     return {
         "proposal": proposal.model_dump(mode="json"),
+        "catalogue_snapshot": {
+            k: v.model_dump(mode="json")
+            for k, v in plan_catalogue(previous_nutrition.content, "food").items()
+        },
         "source_nutrition_id": previous_nutrition.id,
         "source_fingerprint": previous_nutrition.fingerprint,
         "rule_version": "unchanged-maintenance-reuse-v1",

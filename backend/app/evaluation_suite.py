@@ -6,13 +6,13 @@ from copy import deepcopy
 from pydantic import ValidationError
 
 from app.agent_contracts import ChatReply, IntakeProposal
-from app.catalogue import exercise_catalogue, food_catalogue
+from app.catalogue import DEFAULT_EXERCISE_IDS, DEFAULT_FOOD_IDS, exercise_catalogue, food_catalogue
 from app.dietary_policy import dietary_constraints
 from app.nutrition import NutritionProposal, validate_nutrition
 from app.rules import EXCLUSIONS, assess
 from app.training import TrainingProposal, validate_training
 
-SUITE_VERSION = "studio-regression-v1"
+SUITE_VERSION = "studio-regression-weight-v2"
 
 
 def evaluation_cases(role):
@@ -60,6 +60,7 @@ def evaluation_cases(role):
         ]:
             profile = {
                 "age": 28,
+                "weight_kg": 70,
                 "goal": "Build consistency",
                 "experience": "Beginner",
                 "available_days": days,
@@ -68,7 +69,7 @@ def evaluation_cases(role):
             }
             entries = [
                 row.model_dump(mode="json")
-                for row in exercise_catalogue().values()
+                for row in exercise_catalogue(DEFAULT_EXERCISE_IDS).values()
                 if set(row.equipment) <= set(equipment)
             ]
             add(
@@ -89,7 +90,7 @@ def evaluation_cases(role):
             allergens, tags = dietary_constraints(restrictions)
             foods = [
                 food.model_dump(mode="json")
-                for food in food_catalogue().values()
+                for food in food_catalogue(DEFAULT_FOOD_IDS).values()
                 if not set(allergens) & set(food.allergens) and set(tags) <= set(food.dietary_tags)
             ]
             add(

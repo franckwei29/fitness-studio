@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api } from './api';
-import { Check, Clock3 } from 'lucide-react';
+import { Check, Clock3, UserRound, Dumbbell, HeartPulse, ClipboardCheck } from 'lucide-react';
 import { ProfileHistory } from './ProfileHistory';
 
 type Assessment = {id:string;version:number;status:string;confirmed_facts:Record<string,unknown>;proposed_facts:Record<string,unknown>;decision:null|{outcome:string;reasons:string[]}};
@@ -21,6 +21,7 @@ export function Intake({onDirtyChange}:{onDirtyChange?:(dirty:boolean)=>void}={}
   const [profile,setProfile]=useState<Profile|null>(null);
   const [error,setError]=useState(''),[syncError,setSyncError]=useState(''),[busy,setBusy]=useState(false);
   const [loading,setLoading]=useState(true);
+  const [answered,setAnswered]=useState(0);
   const mutation=useRef(false),generation=useRef(0);
   useEffect(()=>{
     let active=true,reading=false,initial=true;
@@ -54,7 +55,7 @@ export function Intake({onDirtyChange}:{onDirtyChange?:(dirty:boolean)=>void}={}
     event.preventDefault();if(!editing||stale||mutation.current)return;
     const fields=new FormData(event.currentTarget);
     const facts:Record<string,unknown>={};
-    for(const key of ['age','available_days','session_minutes'])facts[key]=Number(fields.get(key));
+    for(const key of ['age','weight_kg','available_days','session_minutes'])facts[key]=Number(fields.get(key));
     for(const key of ['goal','experience'])facts[key]=String(fields.get(key));
     for(const key of ['equipment','dietary_restrictions'])facts[key]=String(fields.get(key)||'').split(',').map(item=>item.trim()).filter(Boolean);
     for(const key of Object.keys(questions))facts[key]=fields.get(key)==='yes';
@@ -70,6 +71,8 @@ export function Intake({onDirtyChange}:{onDirtyChange?:(dirty:boolean)=>void}={}
   const displayed=editing||assessment;
   // Confirmed answers take precedence over earlier suggestions from a conversation.
   const values={...(profile?.snapshot?.facts||{}),...(displayed?.proposed_facts||{}),...(displayed?.confirmed_facts||{})};
+  const answerKey=JSON.stringify(Object.keys(questions).map(key=>values[key]));
+  useEffect(()=>{setAnswered(Object.keys(questions).filter(key=>typeof values[key]==='boolean').length);},[answerKey]);
   const locked=!editing||busy||stale;
   const pending=assessment?.status==='PendingOwnerReview';
   const accepted=assessment?.status==='Accepted';
@@ -78,21 +81,23 @@ export function Intake({onDirtyChange}:{onDirtyChange?:(dirty:boolean)=>void}={}
     <span className="eyebrow">A FOUNDATION FOR YOUR PLAN</span><h1>Your starting point</h1>
     <p className="muted">Review your goals, availability, and eligibility before personalised planning begins.</p>
     <div className="profile-status"><strong>Membership status</strong><span>{pending?'Awaiting owner review':profile?.member?.status||'Intake not completed'}</span>{profile?.member&&<small>Confirmed profile version {profile.member.profile_version}</small>}</div>
-    {loading?<p role="status">Loading your details…</p>:!assessment?<>{feedback}<button className="primary start-intake" disabled={busy||!profile} onClick={start}>{busy?'Opening intake…':profile?.member?'Review or update my profile':'Start my intake'}</button></>:<form onChange={()=>onDirtyChange?.(true)} onSubmit={confirm} className="intake-form" key={`${displayed?.id}:${displayed?.version}:${!!editing}`}>
-      <h2>Goals and routine</h2>
+    {loading?<p role="status">Loading your details…</p>:!assessment?<>{feedback}<button className="primary start-intake" disabled={busy||!profile} onClick={start}>{busy?'Opening intake…':profile?.member?'Review or update my profile':'Start my intake'}</button></>:<form onChange={event=>{onDirtyChange?.(true);setAnswered(Object.keys(questions).filter(key=>new FormData(event.currentTarget).has(key)).length);}} onSubmit={confirm} className="intake-form" key={`${displayed?.id}:${displayed?.version}:${!!editing}`}>
+      <div className="profile-section-heading"><span><UserRound size={21}/></span><div><small>01 · ABOUT YOU</small><h2>Basic details</h2><p>A few details to shape your routine.</p></div></div>
       {editing&&<p className="muted">{pending?'You are editing your submitted details. Submitting changes replaces the previous review.':'Review every answer before confirming.'}</p>}
       <div className="form-grid">
         <label>Age<input disabled={locked} name="age" type="number" min={1} max={120} required defaultValue={String(values.age||'')}/></label>
+        <label>Weight (kg)<input disabled={locked} name="weight_kg" aria-label="Weight (kg)" type="number" min="0" onInput={e=>e.currentTarget.setCustomValidity(e.currentTarget.valueAsNumber<=0?"Enter a weight greater than zero.":"")} step="any" required defaultValue={String(values.weight_kg||'')} placeholder="For example, 68.5"/><small>Used to estimate exercise energy.</small></label>
         <label>Training experience<select disabled={locked} name="experience" required defaultValue={String(values.experience||'')}><option value="" disabled>Select experience</option><option>Beginner</option><option>Intermediate</option><option>Advanced</option></select></label>
         <label>Available days per week<input disabled={locked} name="available_days" type="number" min={1} max={7} required defaultValue={String(values.available_days||'')}/></label>
         <label>Minutes per session<input disabled={locked} name="session_minutes" type="number" min={5} max={240} required defaultValue={String(values.session_minutes||'')}/></label>
       </div>
+      <div className="profile-section-heading"><span><Dumbbell size={21}/></span><div><small>02 · YOUR ROUTINE</small><h2>Training preferences</h2><p>Equipment helps us suggest options. You can choose other activities too.</p></div></div>
       <label>Your main goal<input disabled={locked} name="goal" required maxLength={500} defaultValue={String(values.goal||'')} placeholder="For example, build strength and consistency"/></label>
       <label>Available equipment<input disabled={locked} name="equipment" maxLength={1000} defaultValue={Array.isArray(values.equipment)?values.equipment.join(', '):''} placeholder="Separate items with commas; leave blank for no equipment"/></label>
       <label>Dietary restrictions<input disabled={locked} name="dietary_restrictions" maxLength={1000} defaultValue={Array.isArray(values.dietary_restrictions)?values.dietary_restrictions.join(', '):''} placeholder="Separate items with commas; leave blank if none"/></label>
-      <h2>Eligibility and review</h2><p className="muted">{editing?'Answer each question explicitly. Some needs require professional support outside this service.':'These are the answers you submitted.'}</p>
-      {Object.entries(questions).map(([key,text])=><fieldset disabled={locked} key={key}><legend>{text}</legend>{['yes','no'].map(answer=><label className="radio-label" key={answer}><input type="radio" name={key} value={answer} required defaultChecked={typeof values[key]==='boolean'&&values[key]===(answer==='yes')}/>{answer==='yes'?'Yes':'No'}</label>)}</fieldset>)}
-      <div className="intake-submission">
+      <div className="profile-section-heading"><span><HeartPulse size={21}/></span><div><small>03 · HEALTH CHECK-IN</small><h2>Eligibility and review</h2></div><span className="profile-answer-count" aria-live="polite">{answered}/{Object.keys(questions).length} answered</span></div><progress className="profile-progress" value={answered} max={Object.keys(questions).length} aria-label="Health questions answered"/><p className="muted">{editing?'Answer each question explicitly. Some needs require professional support outside this service.':'These are the answers you submitted.'}</p>
+      {Object.entries(questions).map(([key,text])=><fieldset className="health-question" disabled={locked} key={key}><legend>{text}</legend><div className="health-options">{['yes','no'].map(answer=><label className="radio-label" key={answer}><input type="radio" name={key} value={answer} required defaultChecked={typeof values[key]==='boolean'&&values[key]===(answer==='yes')}/><span>{answer==='yes'?'Yes':'No'}</span><Check className="choice-check" size={17} aria-hidden="true"/></label>)}</div></fieldset>)}
+      <div className="intake-submission"><div className="profile-section-heading"><span><ClipboardCheck size={21}/></span><div><small>04 · READY TO CONTINUE</small><h2>Review and confirm</h2></div></div>{profile?.member&&editing&&<p className="muted">Updating your profile, including your weight, may require updated training and meal plans.</p>}
         {!editing&&pending&&<div className="submission-receipt" role="status"><span className="receipt-icon" aria-hidden="true"><Clock3 size={22}/></span><div><strong>Submitted — awaiting owner review</strong><p>Your details have been saved. You do not need to submit again. This page will update after the owner reviews them.</p></div></div>}
         {!editing&&accepted&&<div className="submission-receipt" role="status"><span className="receipt-icon" aria-hidden="true"><Check size={22}/></span><div><strong>Approved</strong><p>Your confirmed profile is ready for planning.</p></div></div>}
         {assessment.status==='NeedsInformation'&&<p role="status">Some required information is missing or invalid. Review your answers before submitting.</p>}

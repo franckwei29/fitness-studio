@@ -3,7 +3,7 @@ import {Check,ContactRound} from 'lucide-react';
 import {api} from './api';
 type Assessment={id:string;version:number;status:string;proposed_facts:Record<string,unknown>;confirmed_facts:Record<string,unknown>};
 type Profile={assessment:Assessment|null;snapshot:{facts:Record<string,unknown>}|null;member:{status:string}|null};
-const required=['age','goal','experience','available_days','session_minutes','equipment','dietary_restrictions','prescribed_exercise','prescribed_nutrition','medical_supervision','pregnancy_postpartum','postoperative_acute_injury','resolved_past_injury'];
+const required=['weight_kg','age','goal','experience','available_days','session_minutes','equipment','dietary_restrictions','prescribed_exercise','prescribed_nutrition','medical_supervision','pregnancy_postpartum','postoperative_acute_injury','resolved_past_injury'];
 const display=(v:unknown)=>v===undefined?'Not provided':Array.isArray(v)?v.join(', ')||'None':typeof v==='boolean'?(v?'Yes':'No'):String(v);
 export function ProfileReviewCard({onEdit}:{onEdit:()=>void}){
  const [data,setData]=useState<Profile|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[consent,setConsent]=useState(false);
@@ -12,7 +12,7 @@ export function ProfileReviewCard({onEdit}:{onEdit:()=>void}){
  useEffect(()=>{setConsent(false);},[data?.assessment?.id,data?.assessment?.version,JSON.stringify(data?.assessment?.proposed_facts),JSON.stringify(data?.assessment?.confirmed_facts)]);
  const a=data?.assessment;const facts={...data?.snapshot?.facts,...a?.proposed_facts,...a?.confirmed_facts};const missing=required.filter(k=>facts[k]===undefined||facts[k]===null);const pending=a?.status==='PendingOwnerReview';const editable=a&&['Collecting','NeedsInformation'].includes(a.status);
  async function confirm(){if(!a||busy)return;setBusy(true);setError('');try{await api(`/assessments/${a.id}/confirm`,{expected_version:a.version,facts});setConsent(false);await load();window.dispatchEvent(new Event('workflow-changed'));}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
- const labels:Record<string,string>={age:'Age',goal:'Your goal',experience:'Training experience',available_days:'Days per week',session_minutes:'Minutes per session',equipment:'Available equipment',dietary_restrictions:'Dietary restrictions',prescribed_exercise:'Prescribed exercise programme',prescribed_nutrition:'Prescribed nutrition programme',medical_supervision:'Medical supervision',pregnancy_postpartum:'Pregnancy or postpartum',postoperative_acute_injury:'Surgery or acute injury recovery',resolved_past_injury:'Resolved past injury'};
+ const labels:Record<string,string>={weight_kg:'Weight (kg)',age:'Age',goal:'Your goal',experience:'Training experience',available_days:'Days per week',session_minutes:'Minutes per session',equipment:'Available equipment',dietary_restrictions:'Dietary restrictions',prescribed_exercise:'Prescribed exercise programme',prescribed_nutrition:'Prescribed nutrition programme',medical_supervision:'Medical supervision',pregnancy_postpartum:'Pregnancy or postpartum',postoperative_acute_injury:'Surgery or acute injury recovery',resolved_past_injury:'Resolved past injury'};
  const hasPrevious=!!data?.snapshot;
  return <section className="member-action-card profile-review-card">
  <header><span className="type-icon" aria-hidden="true"><ContactRound size={24}/></span><div><span className="eyebrow">YOUR STARTING POINT</span><h3>Your profile review</h3></div></header>

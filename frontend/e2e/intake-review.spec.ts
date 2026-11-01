@@ -1,5 +1,5 @@
 import {test,expect,type Page} from '@playwright/test';
-const facts={age:30,experience:'Beginner',available_days:2,session_minutes:30,goal:'Build consistency',equipment:['Dumbbells'],dietary_restrictions:[],prescribed_exercise:false,prescribed_nutrition:false,medical_supervision:false,pregnancy_postpartum:false,postoperative_acute_injury:false,resolved_past_injury:true};
+const facts={age:30,weight_kg:70.5,experience:'Beginner',available_days:2,session_minutes:30,goal:'Build consistency',equipment:['Dumbbells'],dietary_restrictions:[],prescribed_exercise:false,prescribed_nutrition:false,medical_supervision:false,pregnancy_postpartum:false,postoperative_acute_injury:false,resolved_past_injury:true};
 async function setup(page:Page,status='PendingOwnerReview'){
   const state={assessment:{id:'intake',version:2,status,confirmed_facts:facts,proposed_facts:{age:20},decision:null},posts:0,reads:0,failRead:false,failSubmit:false};
   await page.route('**/api/**',async route=>{

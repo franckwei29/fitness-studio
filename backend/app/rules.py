@@ -1,8 +1,9 @@
 """Deterministic admission rules independent of model recommendations."""
 
 from dataclasses import dataclass
+from math import isfinite
 
-RULE_VERSION = "admission-v1"
+RULE_VERSION = "admission-weight-v2"
 EXCLUSIONS = {
     "prescribed_exercise": "A prescribed exercise program requires professional supervision.",
     "prescribed_nutrition": "A prescribed nutrition program is outside our service scope.",
@@ -11,6 +12,7 @@ EXCLUSIONS = {
     "postoperative_acute_injury": "Postoperative recovery or an unresolved acute injury requires professional support.",
 }
 REQUIRED = (
+    "weight_kg",
     "age",
     "goal",
     "experience",
@@ -47,6 +49,10 @@ def assess(facts: dict) -> EligibilityResult:
         if type(value) is not int or not low <= value <= high:
             if key not in missing:
                 missing.append(key)
+    weight = facts.get("weight_kg")
+    if type(weight) not in (int, float) or not isfinite(weight) or weight <= 0:
+        if "weight_kg" not in missing:
+            missing.append("weight_kg")
     reasons = [reason for key, reason in EXCLUSIONS.items() if facts.get(key) is True]
     age = facts.get("age")
     if type(age) is int and 0 < age < 18:

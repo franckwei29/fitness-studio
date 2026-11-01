@@ -49,6 +49,7 @@ def facts(**changes):
     return (
         dict(
             age=28,
+            weight_kg=70.5,
             goal="Build strength",
             experience="Beginner",
             available_days=3,
@@ -195,56 +196,57 @@ def test_changed_assessment_invalidates_previous_approval(member, owner_client):
 def test_pending_confirmation_replay_preserves_owner_review(member, owner_client):
     values = facts(resolved_past_injury=True)
     assessment = submit(member, values)
-    assert assessment['status'] == 'PendingOwnerReview'
-    before = [r for r in owner_client.get('/api/owner/approvals').json()
-              if r['subject_id'] == assessment['id']]
+    assert assessment["status"] == "PendingOwnerReview"
+    before = [
+        r for r in owner_client.get("/api/owner/approvals").json() if r["subject_id"] == assessment["id"]
+    ]
     assert len(before) == 1
-    for version in [1, assessment['version']]:
+    for version in [1, assessment["version"]]:
         response = member.post(
             f"/api/assessments/{assessment['id']}/confirm",
-            json={'expected_version': version, 'facts': values},
+            json={"expected_version": version, "facts": values},
         )
         assert response.status_code == 200
-        assert response.json()['version'] == assessment['version']
-    after = [r for r in owner_client.get('/api/owner/approvals').json()
-             if r['subject_id'] == assessment['id']]
+        assert response.json()["version"] == assessment["version"]
+    after = [
+        r for r in owner_client.get("/api/owner/approvals").json() if r["subject_id"] == assessment["id"]
+    ]
     assert after == before
-    current = member.get('/api/me/profile').json()
-    assert current['assessment']['id'] == assessment['id']
-    assert current['assessment']['status'] == 'PendingOwnerReview'
-    assert current['member'] is None
+    current = member.get("/api/me/profile").json()
+    assert current["assessment"]["id"] == assessment["id"]
+    assert current["assessment"]["status"] == "PendingOwnerReview"
+    assert current["member"] is None
     approval = before[0]
     response = owner_client.post(
         f"/api/owner/approvals/{approval['id']}/decisions",
-        json={'decision': 'Approved', 'fingerprint': approval['fingerprint']},
+        json={"decision": "Approved", "fingerprint": approval["fingerprint"]},
     )
     assert response.status_code == 200
-    current = member.get('/api/me/profile').json()
-    assert current['assessment']['status'] == 'Accepted'
-    assert current['member']['status'] == 'Accepted'
-    assert current['snapshot']['facts'] == values
-    assert owner_client.get('/api/me/profile').json()['assessment'] is None
+    current = member.get("/api/me/profile").json()
+    assert current["assessment"]["status"] == "Accepted"
+    assert current["member"]["status"] == "Accepted"
+    assert current["snapshot"]["facts"] == values
+    assert owner_client.get("/api/me/profile").json()["assessment"] is None
 
 
 def test_pending_edit_replaces_review_and_profile_returns_latest(member, owner_client):
     first = submit(member, facts())
     second = submit(member, facts(resolved_past_injury=True))
-    assert first['id'] != second['id']
-    assert member.get('/api/me/profile').json()['assessment']['id'] == second['id']
-    old = next(r for r in owner_client.get('/api/owner/approvals').json()
-               if r['subject_id'] == second['id'])
+    assert first["id"] != second["id"]
+    assert member.get("/api/me/profile").json()["assessment"]["id"] == second["id"]
+    old = next(r for r in owner_client.get("/api/owner/approvals").json() if r["subject_id"] == second["id"])
     changed = facts(resolved_past_injury=True, available_days=4)
     response = member.post(
         f"/api/assessments/{second['id']}/confirm",
-        json={'expected_version': second['version'], 'facts': changed},
+        json={"expected_version": second["version"], "facts": changed},
     )
     assert response.status_code == 200
-    assert response.json()['version'] == second['version'] + 1
+    assert response.json()["version"] == second["version"] + 1
     stale = owner_client.post(
         f"/api/owner/approvals/{old['id']}/decisions",
-        json={'decision': 'Approved', 'fingerprint': old['fingerprint']},
+        json={"decision": "Approved", "fingerprint": old["fingerprint"]},
     )
     assert stale.status_code == 409
-    current = member.get('/api/me/profile').json()
-    assert current['assessment']['confirmed_facts']['available_days'] == 4
-    assert current['member']['status'] == 'Suspended'
+    current = member.get("/api/me/profile").json()
+    assert current["assessment"]["confirmed_facts"]["available_days"] == 4
+    assert current["member"]["status"] == "Suspended"

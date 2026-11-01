@@ -18,7 +18,7 @@ from app.policy import PolicyDenied, execution_context
 from app.pricing import UsageUncertain, price_for
 from app.rate_limit import ModelRateLimiter
 from app.settings import get_settings
-from app.work_queue import lock_claim
+from app.work_queue import heartbeat, lock_claim
 
 
 class ModelUnavailable(Exception):
@@ -30,10 +30,20 @@ class ModelUnavailable(Exception):
         self.context = context or {}
 
 
-def generate(claim, instruction, context, output_type, max_output_tokens=2048):
+def generate(
+    claim,
+    instruction,
+    context,
+    output_type,
+    max_output_tokens=2048,
+    *,
+    catalogue_task=False,
+    web_search=False,
+):
     settings = get_settings()
     if not settings.model_calls_enabled:
         raise ModelUnavailable("Model calls are disabled.")
+    heartbeat(claim)
     model = settings.default_model
     version = None
     with transaction() as db:
@@ -44,7 +54,13 @@ def generate(claim, instruction, context, output_type, max_output_tokens=2048):
             if item.input_versions.get("agent_version") != version_id:
                 raise PolicyDenied("The model context does not match the task agent version.")
             version = verify_version(db.get(AgentVersion, version_id), item.role)
-            model, instruction = version.model, version.prompt
+            model = version.model
+            if not catalogue_task:
+                instruction = version.prompt
+        if catalogue_task and item.role not in {"Coach", "Nutrition"}:
+            raise PolicyDenied("Catalogue lookup requires a planning role.")
+        if web_search:
+            model = settings.openai_model
         if request.payload.get("owner_agent"):
             from app.owner_agent import INSTRUCTION
 
@@ -63,7 +79,17 @@ def generate(claim, instruction, context, output_type, max_output_tokens=2048):
             instruction += "\nThis is a staged draft discussion. Follow member_draft_feedback using draft_to_revise as the starting point. Do not claim another specialist has started or that anything is activated. Respect the original goal and confirmed constraints."
         price = price_for(model)
         provider = model_info(model)["provider"]
-        payload = build_payload(model, instruction, context, output_type, max_output_tokens, version=version)
+        payload = build_payload(
+            model,
+            instruction,
+            context,
+            output_type,
+            max_output_tokens,
+            version=None if catalogue_task else version,
+        )
+        if web_search:
+            payload["text"] = {"format": {"type": "text"}}
+            payload.update(tools=[{"type": "web_search", "search_context_size": "low"}], max_tool_calls=3)
         digest = fingerprint({"work_id": claim.work_id, "payload": payload})
         previous = db.scalar(
             select(ModelCall)
@@ -80,7 +106,20 @@ def generate(claim, instruction, context, output_type, max_output_tokens=2048):
             return output_type.model_validate(previous.output), previous.id
     if not settings.credentials(provider).get_secret_value():
         raise ModelUnavailable(f"{provider.title()} credentials are not configured.")
-    reservation_micros = price.reservation_for(payload)
+    input_tokens = None
+    if provider == "openai":
+        input_tokens = OpenAITransport(settings.credentials(provider)).count_input_tokens(payload)
+        available = model_info(model)["context_window"] - payload["max_output_tokens"] - 25000
+        if input_tokens > available:
+            raise ModelUnavailable(
+                "The complete request exceeds the model context capacity.", "ContextCapacityExceeded",
+                {"input_tokens": input_tokens, "available_input_tokens": available},
+            )
+        heartbeat(claim)
+    reservation_micros = (
+        price.reservation_for(payload, input_tokens=input_tokens)
+        if provider == "openai" else price.reservation_for(payload)
+    )
     call_id = reserve(
         claim.request_id,
         claim.role,
@@ -133,6 +172,20 @@ def generate(claim, instruction, context, output_type, max_output_tokens=2048):
                         },
                     )
                 )
+            if catalogue_task and isinstance(exc, ProviderFailure) and exc.provider_id and exc.usage:
+                try:
+                    failed_cost = price.actual(exc.usage)
+                    if failed_cost > reservation_micros:
+                        raise UsageUncertain("Reported usage exceeds the reservation.")
+                except UsageUncertain:
+                    pass
+                else:
+                    # Invalid structured output is still billable. Settle known usage so
+                    # the bounded resolver retry can acquire a fresh concurrency slot.
+                    settle(call_id, failed_cost, exc.usage, exc.provider_id, None)
+                    gate.release(call_id)
+                    exc.usage_settled = True
+                    raise
             mark_unknown(call_id)
             # Keep the concurrency slot until this uncertain call is reconciled.
             raise

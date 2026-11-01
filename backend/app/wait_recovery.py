@@ -16,6 +16,7 @@ from app.settings import get_settings
 from app.work_queue import event
 
 RECOVERABLE = {
+    "TokenCountUnavailable",
     "BudgetRequired",
     "HourlyCallLimit",
     "AccountDailyCallLimit",

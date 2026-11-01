@@ -8,6 +8,7 @@ class StrictModel(BaseModel):
 
 
 class IntakeFacts(StrictModel):
+    weight_kg: float | None = Field(default=None, gt=0, allow_inf_nan=False, strict=True)
     age: int | None = Field(default=None, ge=1, le=120)
     goal: str | None = Field(default=None, max_length=500)
     experience: str | None = None
@@ -72,7 +73,8 @@ An unanswered eligibility question is null, never false. Preserve uncertainty an
 list contradictions. Ask focused follow-up questions for missing facts. Propose
 information for review; never declare the applicant accepted. The applicant must
 explicitly confirm the proposed facts and deterministic rules decide eligibility.
-The required facts are age, goal, experience, available_days, session_minutes,
+Collect weight_kg in kilograms, including decimals. Convert explicitly stated units to kg; never assume an unknown weight.
+The required facts are weight_kg, age, goal, experience, available_days, session_minutes,
 equipment, dietary_restrictions, prescribed_exercise, prescribed_nutrition,
 medical_supervision, pregnancy_postpartum, and postoperative_acute_injury.
 """

@@ -1,6 +1,6 @@
 """Versioned standard text pricing in integer micro-US dollars.
 
-Gemini sources checked 2026-10-22; OpenAI sources checked 2026-10-30:
+Gemini sources checked 2026-10-22; OpenAI sources checked 2026-11-01:
 https://developers.openai.com/api/docs/models/gpt-6-luna
 https://developers.openai.com/api/docs/guides/prompt-caching
 https://ai.google.dev/gemini-api/docs/pricing
@@ -83,14 +83,25 @@ class OpenAITextPrice(TextPrice):
     cached_per_million: Decimal = Decimal("0.01")
     cache_write_per_million: Decimal = Decimal("0.125")
 
-    def reservation_for(self, payload):
-        input_bound = min(self.max_input_tokens, len(json.dumps(payload, ensure_ascii=False).encode()) + 4096)
-        return max(
+    def reservation(self):
+        return self.reservation_for({"tools": [{}], "max_output_tokens": self.max_output_tokens})
+
+    def reservation_for(self, payload, input_tokens=None):
+        input_bound = (
+            self.max_input_tokens
+            if payload.get("tools")
+            else min(self.max_input_tokens, len(json.dumps(payload, ensure_ascii=False).encode()) + 4096)
+        )
+        if input_tokens is not None and not payload.get("tools"):
+            input_bound = input_tokens
+        long = input_bound > 272000
+        search_reserve = 10000 * payload.get("max_tool_calls", 0) if payload.get("tools") else 0
+        return search_reserve + max(
             1,
             int(
                 (
-                    input_bound * self.cache_write_per_million
-                    + payload["max_output_tokens"] * self.output_per_million
+                    input_bound * self.cache_write_per_million * (2 if long else 1)
+                    + payload["max_output_tokens"] * self.output_per_million * (Decimal("1.5") if long else 1)
                 ).to_integral_value(rounding=ROUND_CEILING)
             ),
         )
@@ -124,21 +135,28 @@ class OpenAITextPrice(TextPrice):
             or lifetimes.get("ttl_12h_tokens") != 0
         ):
             raise UsageUncertain("Cache lifetime does not match the supported 30-minute rate.")
-        if inputs + outputs != usage["total_tokens"] or inputs > 272000 or outputs > self.max_output_tokens:
+        if (
+            inputs + outputs != usage["total_tokens"]
+            or inputs + outputs > self.max_input_tokens
+            or outputs > self.max_output_tokens
+        ):
             raise UsageUncertain("Usage exceeds the supported standard text pricing bounds.")
         # output_tokens already includes reasoning; never add it a second time.
-        return int(
+        searches = usage.get("web_search_calls", 0)
+        if type(searches) is not int or not 0 <= searches <= 3:
+            raise UsageUncertain("Unexpected search usage.")
+        return searches * 10000 + int(
             (
-                (inputs - cached - writes) * self.input_per_million
+                ((inputs - cached - writes) * self.input_per_million
                 + cached * self.cached_per_million
-                + writes * self.cache_write_per_million
-                + outputs * self.output_per_million
+                + writes * self.cache_write_per_million) * (2 if inputs > 272000 else 1)
+                + outputs * self.output_per_million * (Decimal("1.5") if inputs > 272000 else 1)
             ).to_integral_value(rounding=ROUND_CEILING)
         )
 
 
 LUNA = OpenAITextPrice(
-    "gpt-6-luna", "openai-text-standard-cachewrite-2026-10-30", Decimal("0.10"), Decimal("0.50"), 272000, 4096
+    "gpt-6-luna", "openai-text-long-context-2026-11-01", Decimal("0.10"), Decimal("0.50"), 1050000, 4096
 )
 
 

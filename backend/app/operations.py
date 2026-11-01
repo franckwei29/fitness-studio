@@ -32,7 +32,12 @@ def dashboard(user: User = Depends(owner), start: date | None = None, end: date 
             select(func.count()).select_from(ModelCall).where(ModelCall.status == "UsageUnknown")
         )
         budgets = list(db.scalars(select(BudgetAccount).order_by(BudgetAccount.scope_key)))
-        recent = list(db.scalars(select(Request).order_by(Request.created_at.desc()).limit(30)))
+        # Sort only dashboard fields, not large plan JSON stored on each request.
+        recent = db.execute(
+            select(Request.id, Request.kind, Request.status, Request.created_at, Request.model_calls)
+            .order_by(Request.created_at.desc(), Request.id.desc())
+            .limit(30)
+        ).all()
         return {
             "period": summarize(db, *period),
             "members": member_counts,

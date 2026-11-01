@@ -12,7 +12,7 @@ from app.agent_contracts import COMMON_INSTRUCTION, StrictModel
 from app.agent_graph import graph_config, persistent_graph
 from app.agent_versions import resolve_version
 from app.candidate_correction import correction_context, queue_correction
-from app.catalogue import food_catalogue
+from app.catalogue import proposal_content
 from app.cycle_requests import cycle_baseline
 from app.database import transaction
 from app.dietary_policy import dietary_constraints
@@ -36,14 +36,14 @@ from app.nutrition_reuse import retained_nutrition
 from app.plan_review import owner_review_context
 from app.planning_context import revision_context
 from app.policy import PolicyDenied, execution_context
-from app.substitution import check_substitution, substitution_baseline
+from app.substitution import assemble_substitution, check_substitution, substitution_baseline
 from app.work_queue import event, lock_claim
 
 INSTRUCTION = (
     COMMON_INSTRUCTION
     + """
 Your role is Nutrition. Produce a general food-based daily meal example, not a
-medical prescription or a claim of personalised energy adequacy. Use only supplied
+medical prescription or a claim of personalised energy adequacy. Include every requested_food_id. Use only supplied
 food IDs, exact preparation states, and edible gram portions. Honour all supplied
 restrictions. Do not invent nutrient values: the application calculates them.
 Reference the supplied training_version_id exactly. Describe limitations, including
@@ -82,7 +82,7 @@ def reviewed_proposal(review, previous, training_id):
         content.pop("nutrient_totals", None)
         content["training_version_id"] = training_id
         content["rationale"] = review.explanation
-        return NutritionProposal.model_validate(content)
+        return NutritionProposal.model_validate(proposal_content(content))
     return review.proposal
 
 
@@ -121,13 +121,6 @@ def run_nutrition(claim):
             baseline = substitution_baseline(db, request, authorized["member_id"])
             allergens, tags = dietary_constraints(authorized["profile"].get("dietary_restrictions"))
             version = resolve_version(db, item, authorized, INSTRUCTION)
-            foods = [
-                food.model_dump(mode="json")
-                for food in food_catalogue().values()
-                if not set(allergens) & set(food.allergens) and set(tags) <= set(food.dietary_tags)
-            ]
-            if not foods:
-                raise PolicyDenied("No supported foods match the confirmed restrictions.")
             return {
                 "context": {
                     "profile": authorized["profile"],
@@ -135,7 +128,7 @@ def run_nutrition(claim):
                     "progressive": request.payload.get("progressive", False),
                     "primary_goal": request.kind,
                     "keep_meals": request.payload.get("keep_meals", False),
-                    "foods": foods,
+                    "foods": [],
                     "training_version_id": training.id if training else None,
                     "training": training.content if training else None,
                     "request": request.payload["content"],
@@ -161,7 +154,12 @@ def run_nutrition(claim):
         retained = state["context"].get("retained_nutrition")
         if retained:
             return {"candidate": {"proposal": retained["proposal"], "call_id": None, "retained": retained}}
-        context = state["context"]
+        from app.catalogue_resolver import candidates
+
+        context = dict(state["context"])
+        rows, required = candidates(claim, "food", context)
+        context["foods"] = [r.model_dump(mode="json") for r in rows]
+        context["requested_food_ids"] = required
         if (context.get("training_first") and context.get("previous_plan")) or (
             context.get("progressive") and context.get("training") and not context.get("substitution")
         ):
@@ -170,23 +168,40 @@ def run_nutrition(claim):
             )
             output = reviewed_proposal(review, context.get("previous_plan"), context["training_version_id"])
             return {
+                "context": context,
                 "candidate": {
                     "proposal": output.model_dump(mode="json"),
                     "call_id": call_id,
                     "meal_review": {"decision": review.decision, "explanation": review.explanation},
-                }
+                },
             }
-        output, call_id = generate(claim, INSTRUCTION, state["context"], NutritionProposal, 4096)
-        return {"candidate": {"proposal": output.model_dump(mode="json"), "call_id": call_id}}
+        output, call_id = generate(claim, INSTRUCTION, context, NutritionProposal, 4096)
+        if context.get("substitution"):
+            output = assemble_substitution(output, context["baseline_plan"], context["substitution"])
+        return {
+            "context": context,
+            "candidate": {"proposal": output.model_dump(mode="json"), "call_id": call_id},
+        }
+
+    def selected_catalogue(state):
+        from app.nutrition import FoodDefinition
+
+        if state["candidate"].get("retained"):
+            return {
+                k: FoodDefinition.model_validate(v)
+                for k, v in state["candidate"]["retained"]["catalogue_snapshot"].items()
+            }
+        return {r["id"]: FoodDefinition.model_validate(r) for r in state["context"]["foods"]}
 
     def validate(state):
         allergens, tags = dietary_constraints(state["context"]["profile"].get("dietary_restrictions"))
         result = validate_nutrition(
             NutritionProposal.model_validate(state["candidate"]["proposal"]),
-            food_catalogue(),
+            selected_catalogue(state),
             state["context"]["training_version_id"],
             allergens,
             tags,
+            state["context"].get("requested_food_ids", []),
         )
         return {"validation": result, "requires_confirmation": False}
 
@@ -205,8 +220,15 @@ def run_nutrition(claim):
             training = training_for(db, item, authorized, request)
             baseline = substitution_baseline(db, request, authorized["member_id"])
             allergens, tags = dietary_constraints(authorized["profile"].get("dietary_restrictions"))
+            if baseline:
+                output = assemble_substitution(output, baseline.content, request.payload["substitution"])
             validation = validate_nutrition(
-                output, food_catalogue(), training.id if training else None, allergens, tags
+                output,
+                selected_catalogue(state),
+                training.id if training else None,
+                allergens,
+                tags,
+                state["context"].get("requested_food_ids", []),
             )
             if baseline:
                 validation["violations"].extend(
@@ -239,7 +261,14 @@ def run_nutrition(claim):
                 or 0
             ) + 1
             current = db.get(CurrentPlans, member.id)
-            content = output.model_dump(mode="json") | {"nutrient_totals": validation["basis"]["totals"]}
+            content = output.model_dump(mode="json") | {
+                "nutrient_totals": validation["basis"]["totals"],
+                "catalogue_snapshot": {
+                    k: v.model_dump(mode="json")
+                    for k, v in selected_catalogue(state).items()
+                    if k in {p.food_id for m in output.meals for p in m.portions}
+                },
+            }
             plan = PlanVersion(
                 member_id=member.id,
                 request_id=request.id,
@@ -348,9 +377,9 @@ def run_nutrition(claim):
                 previous = state["context"].get("previous_plan")
                 result["meal_changes"] = bool(
                     previous
-                    and NutritionProposal.model_validate(
-                        {k: v for k, v in previous["content"].items() if k != "nutrient_totals"}
-                    ).model_dump(mode="json")["meals"]
+                    and NutritionProposal.model_validate(proposal_content(previous["content"])).model_dump(
+                        mode="json"
+                    )["meals"]
                     != output.model_dump(mode="json")["meals"]
                 )
                 result["meal_review"] = state["candidate"].get("meal_review", {})
@@ -379,6 +408,8 @@ def run_nutrition(claim):
                     else (
                         "We’re checking and revising your meal draft. Your current routine is unchanged."
                         if result["status"] == "Queued"
+                        else "The selected food and quantity did not change. Choose a different replacement or amount. Your current routine is unchanged."
+                        if validation["violations"] == ["A selected portion was not changed."]
                         else "We couldn’t finish a suitable meal draft. Your current routine is unchanged. Check Activity for the next step."
                     ),
                     cards=[]

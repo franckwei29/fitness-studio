@@ -7,6 +7,7 @@ from app.rules import EXCLUSIONS, assess
 def facts():
     return dict(
         age=28,
+        weight_kg=70.5,
         goal="Build strength",
         experience="Beginner",
         available_days=3,

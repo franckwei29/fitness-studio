@@ -1,0 +1,10 @@
+{
+  "record_count": 3741,
+  "version": "ausnut-2023-full-v2",
+  "source_url": "https://www.foodstandards.gov.au/sites/default/files/2025-09/AUSNUT%202023%20-%20Food%20nutrient%20profiles.xlsx?v=20250903",
+  "source_sha256": "374650afc59951009d5ddf48fe35f712467458eb07eef513ea9f54c8f110f317",
+  "attribution": "Food Standards Australia New Zealand, AUSNUT 2023",
+  "license": "CC BY 4.0",
+  "basis": "Per 100 g edible portion in named state; kJ divided by 4.184. Available carbohydrate excludes sugar alcohols.",
+  "limitation": "Most entries have unknown allergen/dietary status; original ten retain application annotations."
+}

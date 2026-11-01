@@ -1,0 +1,1995 @@
+[
+  {
+    "id": "sit-to-stand",
+    "name": "Sit to stand",
+    "aliases": [
+      "坐下再站起"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 2.8,
+    "equipment": [
+      "Stable chair"
+    ],
+    "instructions": [
+      "Begin seated with feet supported.",
+      "Rise using your legs, then lower yourself with control."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Compendium reference 02340: Sit to stand, 6–12 repetitions per minute"
+  },
+  {
+    "id": "mini-squat",
+    "name": "Supported mini squat",
+    "aliases": [
+      "扶椅小幅深蹲"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "Stable chair"
+    ],
+    "instructions": [
+      "Use the chair back for balance.",
+      "Bend your knees within a comfortable range, then return upright."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "calf-raise",
+    "name": "Supported calf raise",
+    "aliases": [
+      "扶椅提踵"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "Stable chair"
+    ],
+    "instructions": [
+      "Balance with the chair back.",
+      "Raise your heels slowly and lower them with control."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "side-leg-lift",
+    "name": "Supported sideways leg lift",
+    "aliases": [
+      "扶椅侧抬腿"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "Stable chair"
+    ],
+    "instructions": [
+      "Hold the chair for balance.",
+      "Lift one leg sideways without leaning, lower it, and switch sides."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "standing-leg-extension",
+    "name": "Standing leg extension",
+    "aliases": [
+      "扶椅站姿后抬腿"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "Stable chair"
+    ],
+    "instructions": [
+      "Use the chair for balance.",
+      "Move one straight leg behind you without arching your back; alternate sides."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "bodyweight-squat",
+    "name": "Bodyweight squat",
+    "aliases": [
+      "自重深蹲"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "reverse-lunge",
+    "name": "Reverse lunge",
+    "aliases": [
+      "后撤弓步"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "forward-lunge",
+    "name": "Forward lunge",
+    "aliases": [
+      "前跨弓步"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "split-squat",
+    "name": "Split squat",
+    "aliases": [
+      "分腿蹲"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "step-up",
+    "name": "Step-up",
+    "aliases": [
+      "踏台上步"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "stable_step"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "glute-bridge",
+    "name": "Glute bridge",
+    "aliases": [
+      "臀桥"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "bodyweight-calf-raise",
+    "name": "Bodyweight calf raise",
+    "aliases": [
+      "自重提踵"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "goblet-squat",
+    "name": "Goblet squat",
+    "aliases": [
+      "高脚杯深蹲"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "dumbbell"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "barbell-back-squat",
+    "name": "Barbell back squat",
+    "aliases": [
+      "杠铃后蹲"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "barbell",
+      "squat_rack"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "barbell-romanian-deadlift",
+    "name": "Barbell Romanian deadlift",
+    "aliases": [
+      "杠铃罗马尼亚硬拉"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "barbell"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "dumbbell-romanian-deadlift",
+    "name": "Dumbbell Romanian deadlift",
+    "aliases": [
+      "哑铃罗马尼亚硬拉"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "dumbbell"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "dumbbell-lunge",
+    "name": "Dumbbell lunge",
+    "aliases": [
+      "哑铃弓步"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "dumbbell"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "barbell-hip-thrust",
+    "name": "Barbell hip thrust",
+    "aliases": [
+      "杠铃臀推"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "barbell",
+      "weight_bench"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "leg-press-machine",
+    "name": "Leg press",
+    "aliases": [
+      "器械腿举"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "leg_press_machine"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "leg-extension-machine",
+    "name": "Seated leg extension",
+    "aliases": [
+      "器械腿屈伸"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "leg_extension_machine"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "leg-curl-machine",
+    "name": "Seated leg curl",
+    "aliases": [
+      "坐姿腿弯举"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "leg_curl_machine"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "hip-abduction-machine",
+    "name": "Hip abduction machine",
+    "aliases": [
+      "髋外展器械"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "hip_abduction_machine"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "band-lateral-walk",
+    "name": "Resistance-band lateral walk",
+    "aliases": [
+      "弹力带侧步"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "resistance_band"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "wall-press-up",
+    "name": "Wall press-up",
+    "aliases": [
+      "靠墙俯卧撑"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "Wall"
+    ],
+    "instructions": [
+      "Face a wall with palms at chest height.",
+      "Bend your elbows to approach the wall, then push away slowly."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "incline-push-up",
+    "name": "Incline push-up",
+    "aliases": [
+      "上斜俯卧撑"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "stable_surface"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "push-up",
+    "name": "Push-up",
+    "aliases": [
+      "俯卧撑"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "dumbbell-bench-press",
+    "name": "Dumbbell bench press",
+    "aliases": [
+      "哑铃卧推"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "dumbbell",
+      "weight_bench"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "barbell-bench-press",
+    "name": "Barbell bench press",
+    "aliases": [
+      "杠铃卧推"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "barbell",
+      "weight_bench",
+      "bench_press_rack"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "chest-press-machine",
+    "name": "Chest press machine",
+    "aliases": [
+      "坐姿推胸器械"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "chest_press_machine"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "dumbbell-shoulder-press",
+    "name": "Dumbbell shoulder press",
+    "aliases": [
+      "哑铃肩上推举"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "dumbbell"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "shoulder-press-machine",
+    "name": "Shoulder press machine",
+    "aliases": [
+      "器械肩推"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "shoulder_press_machine"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "dumbbell-lateral-raise",
+    "name": "Dumbbell lateral raise",
+    "aliases": [
+      "哑铃侧平举"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "dumbbell"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "cable-triceps-pushdown",
+    "name": "Cable triceps pushdown",
+    "aliases": [
+      "绳索三头肌下压"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "cable_machine"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "biceps-curl",
+    "name": "Light dumbbell biceps curl",
+    "aliases": [
+      "轻哑铃二头肌弯举"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "Dumbbells"
+    ],
+    "instructions": [
+      "Keep your upper arms near your torso.",
+      "Lift the weights toward your shoulders, then lower them slowly."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "dumbbell-row",
+    "name": "One-arm dumbbell row",
+    "aliases": [
+      "单臂哑铃划船"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "dumbbell",
+      "weight_bench"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "seated-cable-row",
+    "name": "Seated cable row",
+    "aliases": [
+      "坐姿绳索划船"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "cable_row_machine"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "lat-pulldown",
+    "name": "Lat pulldown",
+    "aliases": [
+      "高位下拉"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "lat_pulldown_machine"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "assisted-pull-up",
+    "name": "Assisted pull-up",
+    "aliases": [
+      "辅助引体向上"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "assisted_pull_up_machine"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "pull-up",
+    "name": "Pull-up",
+    "aliases": [
+      "引体向上"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "pull_up_bar"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "band-row",
+    "name": "Resistance-band row",
+    "aliases": [
+      "弹力带划船"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "resistance_band",
+      "secure_anchor"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "cable-face-pull",
+    "name": "Cable face pull",
+    "aliases": [
+      "绳索面拉"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "cable_machine"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "hammer-curl",
+    "name": "Dumbbell hammer curl",
+    "aliases": [
+      "哑铃锤式弯举"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "dumbbell"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "reverse-fly-machine",
+    "name": "Reverse fly machine",
+    "aliases": [
+      "反向飞鸟器械"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "reverse_fly_machine"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "dead-bug",
+    "name": "Dead bug",
+    "aliases": [
+      "死虫式"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "bird-dog",
+    "name": "Bird dog",
+    "aliases": [
+      "鸟狗式"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "crunch",
+    "name": "Crunch",
+    "aliases": [
+      "卷腹"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "cable-pallof-press",
+    "name": "Cable Pallof press",
+    "aliases": [
+      "绳索抗旋转推"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "cable_machine"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "kettlebell-deadlift",
+    "name": "Kettlebell deadlift",
+    "aliases": [
+      "壶铃硬拉"
+    ],
+    "category": "strength",
+    "measurement": "reps",
+    "met": 3.5,
+    "equipment": [
+      "kettlebell"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "plank",
+    "name": "Forearm plank",
+    "aliases": [
+      "前臂平板支撑"
+    ],
+    "category": "strength",
+    "measurement": "duration",
+    "met": 3.5,
+    "equipment": [],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "side-plank",
+    "name": "Side plank",
+    "aliases": [
+      "侧平板支撑"
+    ],
+    "category": "strength",
+    "measurement": "duration",
+    "met": 3.5,
+    "equipment": [],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "farmer-carry",
+    "name": "Farmer carry",
+    "aliases": [
+      "农夫行走"
+    ],
+    "category": "strength",
+    "measurement": "duration",
+    "met": 3.5,
+    "equipment": [
+      "dumbbell",
+      "clear_space"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for strength; not an activity-specific measured value."
+  },
+  {
+    "id": "outdoor-walking",
+    "name": "Outdoor walking",
+    "aliases": [
+      "户外步行"
+    ],
+    "category": "cardio",
+    "measurement": "duration",
+    "met": 5.0,
+    "equipment": [
+      "walking_route"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for cardio; not an activity-specific measured value."
+  },
+  {
+    "id": "brisk-walking",
+    "name": "Brisk outdoor walking",
+    "aliases": [
+      "户外快走"
+    ],
+    "category": "cardio",
+    "measurement": "duration",
+    "met": 5.0,
+    "equipment": [
+      "walking_route"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for cardio; not an activity-specific measured value."
+  },
+  {
+    "id": "outdoor-jogging",
+    "name": "Outdoor jogging",
+    "aliases": [
+      "户外慢跑"
+    ],
+    "category": "cardio",
+    "measurement": "duration",
+    "met": 5.0,
+    "equipment": [
+      "running_route"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for cardio; not an activity-specific measured value."
+  },
+  {
+    "id": "outdoor-running",
+    "name": "Outdoor running",
+    "aliases": [
+      "户外跑步"
+    ],
+    "category": "cardio",
+    "measurement": "duration",
+    "met": 5.0,
+    "equipment": [
+      "running_route"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for cardio; not an activity-specific measured value."
+  },
+  {
+    "id": "hiking",
+    "name": "Hiking",
+    "aliases": [
+      "徒步"
+    ],
+    "category": "cardio",
+    "measurement": "duration",
+    "met": 5.0,
+    "equipment": [
+      "walking_route"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for cardio; not an activity-specific measured value."
+  },
+  {
+    "id": "treadmill-walking",
+    "name": "Treadmill walking",
+    "aliases": [
+      "跑步机步行"
+    ],
+    "category": "cardio",
+    "measurement": "duration",
+    "met": 5.0,
+    "equipment": [
+      "treadmill"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for cardio; not an activity-specific measured value."
+  },
+  {
+    "id": "treadmill-running",
+    "name": "Treadmill running",
+    "aliases": [
+      "跑步机跑步"
+    ],
+    "category": "cardio",
+    "measurement": "duration",
+    "met": 5.0,
+    "equipment": [
+      "treadmill"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for cardio; not an activity-specific measured value."
+  },
+  {
+    "id": "stationary-bike",
+    "name": "Stationary cycling",
+    "aliases": [
+      "固定健身车"
+    ],
+    "category": "cardio",
+    "measurement": "duration",
+    "met": 5.0,
+    "equipment": [
+      "stationary_bike"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for cardio; not an activity-specific measured value."
+  },
+  {
+    "id": "outdoor-cycling",
+    "name": "Outdoor cycling",
+    "aliases": [
+      "户外骑行"
+    ],
+    "category": "cardio",
+    "measurement": "duration",
+    "met": 5.0,
+    "equipment": [
+      "bicycle",
+      "cycling_route"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for cardio; not an activity-specific measured value."
+  },
+  {
+    "id": "elliptical",
+    "name": "Elliptical trainer",
+    "aliases": [
+      "椭圆机"
+    ],
+    "category": "cardio",
+    "measurement": "duration",
+    "met": 5.0,
+    "equipment": [
+      "elliptical_machine"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Compendium reference 02048: Elliptical, moderate effort"
+  },
+  {
+    "id": "rowing-ergometer",
+    "name": "Rowing ergometer",
+    "aliases": [
+      "划船机"
+    ],
+    "category": "cardio",
+    "measurement": "duration",
+    "met": 5.0,
+    "equipment": [
+      "rowing_machine"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for cardio; not an activity-specific measured value."
+  },
+  {
+    "id": "stair-climber",
+    "name": "Stair climber",
+    "aliases": [
+      "登阶机"
+    ],
+    "category": "cardio",
+    "measurement": "duration",
+    "met": 5.0,
+    "equipment": [
+      "stair_climber"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for cardio; not an activity-specific measured value."
+  },
+  {
+    "id": "step-aerobics",
+    "name": "Step aerobics",
+    "aliases": [
+      "踏板有氧"
+    ],
+    "category": "cardio",
+    "measurement": "duration",
+    "met": 5.0,
+    "equipment": [
+      "stable_step"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for cardio; not an activity-specific measured value."
+  },
+  {
+    "id": "jump-rope",
+    "name": "Jump rope",
+    "aliases": [
+      "跳绳"
+    ],
+    "category": "cardio",
+    "measurement": "duration",
+    "met": 11.0,
+    "equipment": [
+      "jump_rope",
+      "clear_space"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Compendium reference 02068: Jump rope, general"
+  },
+  {
+    "id": "low-impact-aerobics",
+    "name": "Low-impact aerobics",
+    "aliases": [
+      "低冲击有氧操"
+    ],
+    "category": "cardio",
+    "measurement": "duration",
+    "met": 5.0,
+    "equipment": [
+      "clear_space"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for cardio; not an activity-specific measured value."
+  },
+  {
+    "id": "aerobic-dance",
+    "name": "Aerobic dance",
+    "aliases": [
+      "有氧舞蹈"
+    ],
+    "category": "cardio",
+    "measurement": "duration",
+    "met": 5.0,
+    "equipment": [
+      "clear_space"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for cardio; not an activity-specific measured value."
+  },
+  {
+    "id": "pool-swimming",
+    "name": "Pool swimming",
+    "aliases": [
+      "泳池游泳"
+    ],
+    "category": "cardio",
+    "measurement": "duration",
+    "met": 6.0,
+    "equipment": [
+      "pool_access"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/water-activities/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Compendium reference 18310: Leisurely swimming, not laps"
+  },
+  {
+    "id": "water-walking",
+    "name": "Water walking",
+    "aliases": [
+      "水中步行"
+    ],
+    "category": "cardio",
+    "measurement": "duration",
+    "met": 4.8,
+    "equipment": [
+      "pool_access"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/water-activities/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Compendium reference 18368: Water walking, moderate pace"
+  },
+  {
+    "id": "water-aerobics",
+    "name": "Water aerobics",
+    "aliases": [
+      "水中有氧"
+    ],
+    "category": "cardio",
+    "measurement": "duration",
+    "met": 5.5,
+    "equipment": [
+      "pool_access"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/water-activities/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Compendium reference 18355: Water aerobics, general"
+  },
+  {
+    "id": "standing-calf-stretch",
+    "name": "Standing calf stretch",
+    "aliases": [
+      "站姿小腿拉伸"
+    ],
+    "category": "mobility",
+    "measurement": "duration",
+    "met": 2.3,
+    "equipment": [
+      "wall"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for mobility; not an activity-specific measured value."
+  },
+  {
+    "id": "standing-quadriceps-stretch",
+    "name": "Standing quadriceps stretch",
+    "aliases": [
+      "站姿股四头肌拉伸"
+    ],
+    "category": "mobility",
+    "measurement": "duration",
+    "met": 2.3,
+    "equipment": [
+      "stable_chair"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for mobility; not an activity-specific measured value."
+  },
+  {
+    "id": "seated-hamstring-stretch",
+    "name": "Seated hamstring stretch",
+    "aliases": [
+      "坐姿腘绳肌拉伸"
+    ],
+    "category": "mobility",
+    "measurement": "duration",
+    "met": 2.3,
+    "equipment": [
+      "stable_chair"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for mobility; not an activity-specific measured value."
+  },
+  {
+    "id": "chest-opening-stretch",
+    "name": "Chest-opening stretch",
+    "aliases": [
+      "胸部打开拉伸"
+    ],
+    "category": "mobility",
+    "measurement": "duration",
+    "met": 2.3,
+    "equipment": [],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for mobility; not an activity-specific measured value."
+  },
+  {
+    "id": "hip-flexor-stretch",
+    "name": "Kneeling hip-flexor stretch",
+    "aliases": [
+      "跪姿髋屈肌拉伸"
+    ],
+    "category": "mobility",
+    "measurement": "duration",
+    "met": 2.3,
+    "equipment": [],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for mobility; not an activity-specific measured value."
+  },
+  {
+    "id": "shoulder-circles",
+    "name": "Shoulder circles",
+    "aliases": [
+      "肩部绕环"
+    ],
+    "category": "mobility",
+    "measurement": "duration",
+    "met": 2.3,
+    "equipment": [],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for mobility; not an activity-specific measured value."
+  },
+  {
+    "id": "supported-single-leg-balance",
+    "name": "Supported single-leg balance",
+    "aliases": [
+      "扶椅单腿平衡"
+    ],
+    "category": "mobility",
+    "measurement": "duration",
+    "met": 2.3,
+    "equipment": [
+      "stable_chair"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/conditioning-exercise/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for mobility; not an activity-specific measured value."
+  },
+  {
+    "id": "badminton",
+    "name": "Badminton",
+    "aliases": [
+      "羽毛球"
+    ],
+    "category": "ball_sport",
+    "measurement": "duration",
+    "met": 5.5,
+    "equipment": [
+      "badminton_racket",
+      "shuttlecock",
+      "badminton_space"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/sports/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Compendium reference 15030: Badminton, social"
+  },
+  {
+    "id": "recreational-tennis",
+    "name": "Tennis",
+    "aliases": [
+      "网球"
+    ],
+    "category": "ball_sport",
+    "measurement": "duration",
+    "met": 4.0,
+    "equipment": [
+      "tennis_racket",
+      "tennis_ball",
+      "tennis_space"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/sports/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for ball_sport; not an activity-specific measured value."
+  },
+  {
+    "id": "table-tennis",
+    "name": "Table tennis",
+    "aliases": [
+      "乒乓球"
+    ],
+    "category": "ball_sport",
+    "measurement": "duration",
+    "met": 4.0,
+    "equipment": [
+      "table_tennis_paddle",
+      "table_tennis_ball",
+      "table_tennis_table"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/sports/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Compendium reference 15660: Table tennis"
+  },
+  {
+    "id": "squash",
+    "name": "Squash",
+    "aliases": [
+      "壁球"
+    ],
+    "category": "ball_sport",
+    "measurement": "duration",
+    "met": 4.0,
+    "equipment": [
+      "squash_racket",
+      "squash_ball",
+      "squash_court"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/sports/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for ball_sport; not an activity-specific measured value."
+  },
+  {
+    "id": "pickleball",
+    "name": "Pickleball",
+    "aliases": [
+      "匹克球"
+    ],
+    "category": "ball_sport",
+    "measurement": "duration",
+    "met": 4.0,
+    "equipment": [
+      "pickleball_paddle",
+      "pickleball",
+      "compatible_court"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/sports/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for ball_sport; not an activity-specific measured value."
+  },
+  {
+    "id": "basketball",
+    "name": "Basketball",
+    "aliases": [
+      "篮球"
+    ],
+    "category": "ball_sport",
+    "measurement": "duration",
+    "met": 7.5,
+    "equipment": [
+      "basketball",
+      "basketball_space"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/sports/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Compendium reference 15055: Basketball, general"
+  },
+  {
+    "id": "football-soccer",
+    "name": "Football (soccer)",
+    "aliases": [
+      "足球"
+    ],
+    "category": "ball_sport",
+    "measurement": "duration",
+    "met": 7.0,
+    "equipment": [
+      "soccer_ball",
+      "soccer_space"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/sports/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Compendium reference 15610: Soccer, casual"
+  },
+  {
+    "id": "futsal",
+    "name": "Futsal",
+    "aliases": [
+      "五人制室内足球"
+    ],
+    "category": "ball_sport",
+    "measurement": "duration",
+    "met": 7.8,
+    "equipment": [
+      "futsal_ball",
+      "futsal_court"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/sports/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Compendium reference 15195: Futsal"
+  },
+  {
+    "id": "volleyball",
+    "name": "Volleyball",
+    "aliases": [
+      "排球"
+    ],
+    "category": "ball_sport",
+    "measurement": "duration",
+    "met": 4.0,
+    "equipment": [
+      "volleyball",
+      "volleyball_space"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/sports/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for ball_sport; not an activity-specific measured value."
+  },
+  {
+    "id": "beach-volleyball",
+    "name": "Beach volleyball",
+    "aliases": [
+      "沙滩排球"
+    ],
+    "category": "ball_sport",
+    "measurement": "duration",
+    "met": 4.0,
+    "equipment": [
+      "volleyball",
+      "beach_volleyball_space"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/sports/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for ball_sport; not an activity-specific measured value."
+  },
+  {
+    "id": "netball",
+    "name": "Netball",
+    "aliases": [
+      "英式无板篮球"
+    ],
+    "category": "ball_sport",
+    "measurement": "duration",
+    "met": 4.0,
+    "equipment": [
+      "netball",
+      "netball_space"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/sports/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for ball_sport; not an activity-specific measured value."
+  },
+  {
+    "id": "cricket",
+    "name": "Cricket",
+    "aliases": [
+      "板球"
+    ],
+    "category": "ball_sport",
+    "measurement": "duration",
+    "met": 4.0,
+    "equipment": [
+      "cricket_equipment",
+      "cricket_space"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/sports/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for ball_sport; not an activity-specific measured value."
+  },
+  {
+    "id": "baseball",
+    "name": "Baseball",
+    "aliases": [
+      "棒球"
+    ],
+    "category": "ball_sport",
+    "measurement": "duration",
+    "met": 4.0,
+    "equipment": [
+      "baseball_equipment",
+      "baseball_space"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/sports/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for ball_sport; not an activity-specific measured value."
+  },
+  {
+    "id": "softball",
+    "name": "Softball",
+    "aliases": [
+      "垒球"
+    ],
+    "category": "ball_sport",
+    "measurement": "duration",
+    "met": 4.0,
+    "equipment": [
+      "softball_equipment",
+      "softball_space"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/sports/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for ball_sport; not an activity-specific measured value."
+  },
+  {
+    "id": "golf",
+    "name": "Golf",
+    "aliases": [
+      "高尔夫球"
+    ],
+    "category": "ball_sport",
+    "measurement": "duration",
+    "met": 4.0,
+    "equipment": [
+      "golf_equipment",
+      "golf_facility"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/sports/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for ball_sport; not an activity-specific measured value."
+  },
+  {
+    "id": "rugby-touch",
+    "name": "Touch rugby",
+    "aliases": [
+      "触式橄榄球"
+    ],
+    "category": "ball_sport",
+    "measurement": "duration",
+    "met": 4.0,
+    "equipment": [
+      "rugby_ball",
+      "rugby_space"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/sports/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for ball_sport; not an activity-specific measured value."
+  },
+  {
+    "id": "australian-football",
+    "name": "Australian rules football",
+    "aliases": [
+      "澳式足球"
+    ],
+    "category": "ball_sport",
+    "measurement": "duration",
+    "met": 4.0,
+    "equipment": [
+      "australian_football",
+      "australian_football_space"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/sports/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for ball_sport; not an activity-specific measured value."
+  },
+  {
+    "id": "field-hockey",
+    "name": "Field hockey",
+    "aliases": [
+      "草地曲棍球"
+    ],
+    "category": "ball_sport",
+    "measurement": "duration",
+    "met": 4.0,
+    "equipment": [
+      "hockey_stick",
+      "hockey_ball",
+      "hockey_space"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/sports/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for ball_sport; not an activity-specific measured value."
+  },
+  {
+    "id": "handball-team",
+    "name": "Team handball",
+    "aliases": [
+      "手球"
+    ],
+    "category": "ball_sport",
+    "measurement": "duration",
+    "met": 4.0,
+    "equipment": [
+      "handball",
+      "handball_space"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/sports/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for ball_sport; not an activity-specific measured value."
+  },
+  {
+    "id": "water-polo",
+    "name": "Water polo",
+    "aliases": [
+      "水球"
+    ],
+    "category": "ball_sport",
+    "measurement": "duration",
+    "met": 4.0,
+    "equipment": [
+      "water_polo_ball",
+      "pool_access"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/sports/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Category-average estimate for ball_sport; not an activity-specific measured value."
+  },
+  {
+    "id": "bowling",
+    "name": "Ten-pin bowling",
+    "aliases": [
+      "保龄球"
+    ],
+    "category": "ball_sport",
+    "measurement": "duration",
+    "met": 3.8,
+    "equipment": [
+      "bowling_facility"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/sports/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Compendium reference 15092: Bowling, indoor"
+  },
+  {
+    "id": "billiards",
+    "name": "Billiards",
+    "aliases": [
+      "台球"
+    ],
+    "category": "ball_sport",
+    "measurement": "duration",
+    "met": 2.5,
+    "equipment": [
+      "billiards_facility"
+    ],
+    "instructions": [
+      "Choose a comfortable pace and duration; arrange any equipment or venue yourself."
+    ],
+    "origin": "Estimate",
+    "source_url": "https://pacompendium.com/sports/",
+    "catalogue_version": "studio-expanded-v2",
+    "met_basis": "Compendium reference 15080: Billiards"
+  }
+]

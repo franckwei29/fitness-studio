@@ -49,7 +49,7 @@ which actions can run. Existing plan cards are not calendar appointments. No dia
 medical prescription, new personal nutrient target, or bypass of admission or policy.
 Do not change an existing plan for mere feedback; offer its feedback control instead.
 Feedback: record training or meal feedback in an inline preview. Substitution: replace
-specific foods in the CURRENT active meal plan. CycleReview: confirm a completed training
+specific foods in the CURRENT active meal plan. An explicit request to replace a named food in a named meal uses Substitution even when the member also says regenerate the meal plan. Ask which meal/food/replacement if ambiguous; never guess indices. CycleReview: confirm a completed training
 period and request the next cycle. ViewAllowance: remaining usage and limits. ViewUpdates:
 notifications and review outcomes. For Feedback, Substitution and CycleReview populate
 action_details ONLY with facts explicitly supplied by the member. Use supplied current

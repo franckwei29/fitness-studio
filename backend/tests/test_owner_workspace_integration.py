@@ -44,6 +44,7 @@ def pending_application(member):
     assessment = member.post("/api/assessments").json()
     facts = dict(
         age=28,
+        weight_kg=70.5,
         goal="Private application evidence",
         experience="Beginner",
         available_days=3,
@@ -63,8 +64,7 @@ def pending_application(member):
 
 def approval_for(owner, assessment):
     return next(
-        row for row in owner.get("/api/owner/approvals").json()
-        if row["subject_id"] == assessment["id"]
+        row for row in owner.get("/api/owner/approvals").json() if row["subject_id"] == assessment["id"]
     )
 
 
@@ -85,10 +85,13 @@ def test_owner_workspace_and_receipts_require_owner_access(workspace_clients):
     conversation = owner.post("/api/conversations").json()
     target = {"page": "members", "id": str(uuid4())}
     assert member.get("/api/owner/workspace?area=attention").status_code == 403
-    assert member.post(
-        f"/api/owner/conversations/{conversation['id']}/receipts",
-        json={"key": str(uuid4()), "target": target},
-    ).status_code == 403
+    assert (
+        member.post(
+            f"/api/owner/conversations/{conversation['id']}/receipts",
+            json={"key": str(uuid4()), "target": target},
+        ).status_code
+        == 403
+    )
     with TestClient(app) as anonymous:
         assert anonymous.get("/api/owner/workspace?area=attention").status_code == 401
 
@@ -101,9 +104,7 @@ def test_bilingual_attention_is_local_and_persists_in_one_conversation(workspace
     conversation = owner.post("/api/conversations").json()
     before_calls = model_count()
     body, result = submit_owner(owner, conversation, content)
-    assert owner.post(
-        f"/api/conversations/{conversation['id']}/messages", json=body
-    ).json() == result
+    assert owner.post(f"/api/conversations/{conversation['id']}/messages", json=body).json() == result
     history = owner.get(f"/api/conversations/{conversation['id']}").json()
     assert len(history["messages"]) == 2
     assert history["messages"][0]["content"] == content
@@ -113,9 +114,10 @@ def test_bilingual_attention_is_local_and_persists_in_one_conversation(workspace
     with transaction() as db:
         request = db.get(Request, result["request_id"])
         assert request.status == "Completed"
-        assert db.scalar(select(func.count()).select_from(WorkItem).where(
-            WorkItem.request_id == request.id
-        )) == 0
+        assert (
+            db.scalar(select(func.count()).select_from(WorkItem).where(WorkItem.request_id == request.id))
+            == 0
+        )
     projection = owner.get("/api/owner/workspace", params={"area": "approvals", "target_id": approval["id"]})
     assert projection.status_code == 200, projection.text
     assert approval["id"] in projection.text
@@ -135,7 +137,11 @@ def test_receipt_cannot_claim_an_unperformed_approval_and_replays_once(workspace
     assert owner.get(f"/api/conversations/{conversation['id']}").json()["messages"] == []
     decided = owner.post(
         f"/api/owner/approvals/{approval['id']}/decisions",
-        json={"decision": "Approved", "fingerprint": approval["fingerprint"], "comment": "Reviewed current application."},
+        json={
+            "decision": "Approved",
+            "fingerprint": approval["fingerprint"],
+            "comment": "Reviewed current application.",
+        },
     )
     assert decided.status_code == 200
     response = owner.post(path, json=payload)
@@ -144,7 +150,9 @@ def test_receipt_cannot_claim_an_unperformed_approval_and_replays_once(workspace
     assert owner.post(path, json=payload).json() == first
     assert owner.post(path, json=payload | {"key": str(uuid4())}).status_code in {200, 201}
     history = owner.get(f"/api/conversations/{conversation['id']}").json()
-    receipts = [card for row in history["messages"] for card in row["cards"] if card["type"] == "OwnerReceipt"]
+    receipts = [
+        card for row in history["messages"] for card in row["cards"] if card["type"] == "OwnerReceipt"
+    ]
     assert len(receipts) == 1
     assert member.get("/api/me/profile").json()["member"]["status"] == "Accepted"
 
@@ -157,10 +165,18 @@ def test_budget_stale_write_preserves_saved_value_and_receipt(workspace_clients)
         db.add(group)
         db.flush()
         scope = f"group:{group.id}"
-    initial = owner.post("/api/owner/budgets", json={"scope_key": scope, "limit_micros": 1000000, "reason": "Set test allowance"})
+    initial = owner.post(
+        "/api/owner/budgets",
+        json={"scope_key": scope, "limit_micros": 1000000, "reason": "Set test allowance"},
+    )
     assert initial.status_code == 200
     old = initial.json()
-    body = {"scope_key": scope, "limit_micros": 2000000, "expected_fingerprint": old["fingerprint"], "reason": "Confirmed test adjustment"}
+    body = {
+        "scope_key": scope,
+        "limit_micros": 2000000,
+        "expected_fingerprint": old["fingerprint"],
+        "reason": "Confirmed test adjustment",
+    }
     assert owner.post("/api/owner/budgets", json=body).status_code == 200
     assert owner.post("/api/owner/budgets", json=body | {"limit_micros": 3000000}).status_code == 409
     saved = next(row for row in owner.get("/api/owner/budgets").json() if row["scope_key"] == scope)
@@ -180,7 +196,11 @@ def test_revision_and_rejection_have_truthful_receipts(workspace_clients, decisi
     conversation = owner.post("/api/conversations").json()
     response = owner.post(
         f"/api/owner/approvals/{approval['id']}/decisions",
-        json={"decision": decision, "fingerprint": approval["fingerprint"], "comment": "Current evidence reviewed."},
+        json={
+            "decision": decision,
+            "fingerprint": approval["fingerprint"],
+            "comment": "Current evidence reviewed.",
+        },
     )
     assert response.status_code == 200, response.text
     receipt = owner.post(
@@ -202,7 +222,10 @@ def test_superseded_application_cannot_be_decided_or_receive_success_receipt(wor
     conversation = owner.post("/api/conversations").json()
     response = member.post(
         f"/api/assessments/{assessment['id']}/confirm",
-        json={"expected_version": assessment["version"], "facts": assessment["confirmed_facts"] | {"available_days": 4}},
+        json={
+            "expected_version": assessment["version"],
+            "facts": assessment["confirmed_facts"] | {"available_days": 4},
+        },
     )
     assert response.status_code == 200
     response = owner.post(
@@ -263,7 +286,9 @@ def test_natural_language_approval_request_only_prepares_the_exact_review(worksp
     assert current["decision"] == "Pending"
     assert member.get("/api/me/profile").json()["member"] is None
     history = owner.get(f"/api/conversations/{conversation['id']}").json()
-    assert history["messages"][-1]["cards"] == [{"type": "OwnerWorkspace", "area": "approvals", "target_id": approval["id"]}]
+    assert history["messages"][-1]["cards"] == [
+        {"type": "OwnerWorkspace", "area": "approvals", "target_id": approval["id"]}
+    ]
 
 
 def test_receipt_key_cannot_be_repurposed_for_another_record(workspace_clients):
@@ -279,7 +304,10 @@ def test_receipt_key_cannot_be_repurposed_for_another_record(workspace_clients):
     path = f"/api/owner/conversations/{conversation['id']}/receipts"
     payload = {"key": str(uuid4()), "target": {"page": "approvals", "id": approval["id"]}}
     assert owner.post(path, json=payload).status_code == 200
-    assert owner.post(path, json=payload | {"target": {"page": "approvals", "id": str(uuid4())}}).status_code == 409
+    assert (
+        owner.post(path, json=payload | {"target": {"page": "approvals", "id": str(uuid4())}}).status_code
+        == 409
+    )
     history = owner.get(f"/api/conversations/{conversation['id']}").json()
     assert len(history["messages"]) == 1
 
@@ -303,10 +331,13 @@ def test_group_language_resolves_member_and_destination_without_reassignment(wor
     owner, member = workspace_clients
     assessment = pending_application(member)
     approval = approval_for(owner, assessment)
-    assert owner.post(
-        f"/api/owner/approvals/{approval['id']}/decisions",
-        json={"decision": "Approved", "fingerprint": approval["fingerprint"]},
-    ).status_code == 200
+    assert (
+        owner.post(
+            f"/api/owner/approvals/{approval['id']}/decisions",
+            json={"decision": "Approved", "fingerprint": approval["fingerprint"]},
+        ).status_code
+        == 200
+    )
     account = member.get("/api/auth/me").json()["user"]
     initial = member.get("/api/me/profile").json()["member"]
     with transaction() as db:
@@ -335,7 +366,14 @@ def test_audit_for_another_fingerprint_cannot_become_this_review_receipt(workspa
     conversation = owner.post("/api/conversations").json()
     actor = owner.get("/api/auth/me").json()["user"]["id"]
     with transaction() as db:
-        db.add(AuditEvent(actor_id=actor, event_type="training.reviewed", subject_id=assessment["id"], details={"decision": "Approved", "fingerprint": "different-evidence"}))
+        db.add(
+            AuditEvent(
+                actor_id=actor,
+                event_type="training.reviewed",
+                subject_id=assessment["id"],
+                details={"decision": "Approved", "fingerprint": "different-evidence"},
+            )
+        )
     result = owner.post(
         f"/api/owner/conversations/{conversation['id']}/receipts",
         json={"key": str(uuid4()), "target": {"page": "approvals", "id": approval["id"]}},
@@ -352,10 +390,20 @@ def test_invalid_comparison_receipt_does_not_fall_back_to_candidate_save(workspa
     conversation = owner.post("/api/conversations").json()
     actor = owner.get("/api/auth/me").json()["user"]["id"]
     with transaction() as db:
-        db.add(AuditEvent(actor_id=actor, event_type="agent_version.candidate_saved", subject_id=candidate["id"], details={}))
+        db.add(
+            AuditEvent(
+                actor_id=actor,
+                event_type="agent_version.candidate_saved",
+                subject_id=candidate["id"],
+                details={},
+            )
+        )
     result = owner.post(
         f"/api/owner/conversations/{conversation['id']}/receipts",
-        json={"key": str(uuid4()), "target": {"page": "versions", "id": candidate["id"], "section": f"evaluation:{uuid4()}"}},
+        json={
+            "key": str(uuid4()),
+            "target": {"page": "versions", "id": candidate["id"], "section": f"evaluation:{uuid4()}"},
+        },
     )
     assert result.status_code == 404
     assert owner.get(f"/api/conversations/{conversation['id']}").json()["messages"] == []

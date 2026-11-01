@@ -5,6 +5,7 @@ MODELS = {
     "gpt-6-luna": {
         "provider": "openai",
         "label": "GPT-6 Luna",
+        "context_window": 1050000,
         "reasoning": ["none", "low", "medium", "high"],
     },
 }

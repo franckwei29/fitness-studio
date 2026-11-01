@@ -139,3 +139,71 @@ def test_default_cache_writes_use_the_write_rate_and_cannot_overlap_reads():
     assert LUNA.actual(usage(input_tokens_details={"cached_tokens": 200, "cache_write_tokens": 600})) == 147
     with pytest.raises(UsageUncertain):
         LUNA.actual(usage(input_tokens_details={"cached_tokens": 200, "cache_write_tokens": 900}))
+
+
+def test_web_search_events_and_cost_are_accounted():
+    from app.catalogue_resolver import SearchEvidence
+
+    body = response()
+    body["output"].insert(0, {"type": "web_search_call", "status": "completed", "action": {"type": "search"}})
+    body["output"][-1]["content"][0]["text"] = "Synthetic search evidence."
+    result = decode_response(body, SearchEvidence)
+    assert result.output.evidence == "Synthetic search evidence."
+    assert result.usage["web_search_calls"] == 1
+    assert LUNA.actual(result.usage) == LUNA.actual(usage()) + 10000
+    payload = build_payload("gpt-6-luna", "Search.", {}, SearchEvidence)
+    payload.update(tools=[{"type": "web_search"}], max_tool_calls=1)
+    assert LUNA.reservation_for(payload) > LUNA.actual(result.usage)
+
+
+
+def test_large_payload_is_counted_without_truncation():
+    import json
+    payload = build_payload("gpt-6-luna", "Reply.", {"message": "苹果" * 40000}, ChatReply)
+    assert len(json.dumps(payload).encode()) > 64000
+    def handler(request):
+        assert request.url.path == "/v1/responses/input_tokens"
+        body = json.loads(request.content)
+        assert body["input"] == payload["input"]
+        assert body["text"] == payload["text"]
+        assert "store" not in body
+        return httpx.Response(200, json={"input_tokens": 80000})
+    assert OpenAITransport(SecretStr("synthetic"), httpx.MockTransport(handler)).count_input_tokens(payload) == 80000
+
+
+@pytest.mark.parametrize("status,body", [(503, {}), (200, {}), (200, {"input_tokens": True})])
+def test_token_count_failure_is_not_a_studio_review(status, body):
+    from app.model_gateway import ModelUnavailable
+    from app.member_status import waiting_status
+    transport = OpenAITransport(SecretStr("synthetic"), httpx.MockTransport(lambda r: httpx.Response(status, json=body)))
+    with pytest.raises(ModelUnavailable) as exc:
+        transport.count_input_tokens(build_payload("gpt-6-luna", "Reply.", {}, ChatReply))
+    assert exc.value.wait_reason == "TokenCountUnavailable"
+    assert waiting_status(exc.value.wait_reason)[2]
+    assert not waiting_status("ContextCapacityExceeded")[2]
+
+
+@pytest.mark.parametrize("inputs", [272000, 272001, 900000])
+def test_long_context_pricing_and_reservation(inputs):
+    from decimal import Decimal, ROUND_CEILING
+    data = usage(input_tokens=inputs, total_tokens=inputs+100,
+                 input_tokens_details={"cached_tokens": 0, "cache_write_tokens": 0})
+    multiplier = 2 if inputs > 272000 else 1
+    output_multiplier = Decimal("1.5") if inputs > 272000 else 1
+    expected = int((inputs * Decimal("0.1") * multiplier + 100 * Decimal("0.5") * output_multiplier).to_integral_value(rounding=ROUND_CEILING))
+    assert LUNA.actual(data) == expected
+    payload = build_payload("gpt-6-luna", "Reply.", {}, ChatReply)
+    assert LUNA.reservation_for(payload, input_tokens=inputs) >= expected
+
+
+def test_partial_page_preserves_completed_cited_search():
+    from app.catalogue_resolver import SearchEvidence
+    body = response()
+    body['output'].insert(0, {'type':'web_search_call','status':'completed','action':{'type':'search'}})
+    body['output'].insert(1, {'type':'web_search_call','status':'searching','action':{'type':'open_page'}})
+    body['output'][-1]['content'][0]['annotations'] = [{'type':'url_citation','url':'https://example.com'}]
+    result = decode_response(body, SearchEvidence)
+    assert result.usage['web_search_calls'] == 1
+    body['output'][-1]['content'][0]['annotations'] = []
+    with pytest.raises(ProviderFailure):
+        decode_response(body, SearchEvidence)

@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from app.activation import ActivationConflict, activate_pair
 from app.admission import view
-from app.catalogue import exercise_catalogue, food_catalogue
+from app.catalogue import catalogue_labels, plan_catalogue, proposal_content
 from app.database import transaction
 from app.models import CurrentPlans, Member, MemberGroup, PlanPair, PlanVersion, Request, User
 from app.security import principal
@@ -39,10 +39,8 @@ def nutrition_totals(plan):
         return None
     try:
         return calculate_totals(
-            NutritionProposal.model_validate(
-                {key: value for key, value in plan.content.items() if key != "nutrient_totals"}
-            ),
-            food_catalogue(),
+            NutritionProposal.model_validate(proposal_content(plan.content)),
+            plan_catalogue(plan.content, "food"),
         )
     except (ValidationError, ValueError):
         return None
@@ -87,9 +85,7 @@ def my_plans(user: User = Depends(principal)):
         return {
             "workflows": {r.id: workflow_view(db, f) for r in related if (f := find(db, r))},
             "member_status": member.status,
-            "catalogue_labels": {
-                row.id: row.name for row in [*food_catalogue().values(), *exercise_catalogue().values()]
-            },
+            "catalogue_labels": catalogue_labels([p.content for p in plans]),
             "substitutions_enabled": bool(
                 group and group.configuration.get("capabilities", {}).get("substitutions") is True
             ),

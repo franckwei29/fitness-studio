@@ -141,3 +141,40 @@
 .member-selection-row { display:flex; gap:12px; align-items:center; padding:12px; border-bottom:1px solid #e0e7e1; }
 .member-selection-row input { width:auto; }
 @media(max-width:640px) { .model-comparison-grid { grid-template-columns:1fr; } .model-result-card { padding:18px; } }
+
+/* Shared dialogs own one scrolling body. Choice controls must never inherit text-input width. */
+.studio-modal{padding:0;overflow:hidden;max-height:90dvh}
+.studio-modal[open]{display:flex;flex-direction:column}
+.studio-modal>header{position:relative;top:auto;flex-shrink:0;margin:0;padding:20px 26px;background:var(--sage-panel,#fff);border-bottom:1px solid var(--sage-line,#dce3d7)}
+.studio-modal>header .text-button{margin:0;flex-shrink:0;width:42px;height:42px;justify-content:center;border-radius:12px}
+.studio-modal-body{min-height:0;overflow:auto;padding:24px 26px;overscroll-behavior:contain}
+.studio-modal-body .member-workspace-modal{max-height:none;overflow:visible;padding:0}
+.studio-modal-body .intake-page{height:auto;overflow:visible;padding:0;scrollbar-gutter:auto}
+.studio-modal input[type=radio],.studio-modal input[type=checkbox]{width:18px;height:18px;flex:0 0 18px;margin:0;accent-color:var(--sage-accent,#315d46)}
+.studio-modal label.radio-label,.studio-modal label.consent-row{display:flex;align-items:center;gap:10px}
+.intake-form .profile-section-heading{display:flex;align-items:center;gap:12px;margin:30px 0 16px}
+.profile-section-heading>span:first-child{display:grid;place-items:center;width:42px;height:42px;flex-shrink:0;border-radius:13px;background:var(--sage-soft,#e8efdf);color:var(--sage-accent,#315d46)}
+.profile-section-heading small{font-size:10px;font-weight:700;letter-spacing:1.2px;color:var(--sage-muted,#627066)}
+.intake-form .profile-section-heading h2{font-size:22px;margin:2px 0 0;line-height:1.3}
+.profile-section-heading p{margin:5px 0 0;font-size:14px;color:var(--sage-muted,#627066)}
+.intake-form label>small{display:block;margin-top:5px;color:var(--sage-muted,#627066);font-weight:400;font-size:12px}
+.profile-section-heading .profile-answer-count{margin-left:auto;font-size:12px;white-space:nowrap;color:var(--sage-muted,#627066)}
+.profile-progress{width:100%;height:6px;accent-color:var(--sage-accent,#315d46);display:block;margin:0 0 16px}
+.intake-form .health-question{min-width:0;margin:14px 0;padding:16px 18px;border:1px solid var(--sage-line,#dce3d7);border-radius:16px;background:var(--sage-panel,#fff)}
+.intake-form .health-question legend{padding:0 6px;font-size:15px;font-weight:600;max-width:100%;line-height:1.5}
+.health-options{display:flex;gap:10px;flex-wrap:wrap;margin-top:5px}
+.intake-form .health-options .radio-label{display:flex;align-items:center;gap:10px;margin:0;padding:11px 14px;border:1px solid var(--sage-line,#dce3d7);border-radius:11px;min-height:46px;min-width:125px;cursor:pointer;font-size:15px}
+.health-options .choice-check{margin-left:auto;visibility:hidden}
+.health-options .radio-label:has(input:checked){background:var(--sage-soft,#e8efdf);border-color:var(--sage-accent,#315d46);color:var(--sage-accent,#315d46)}
+.health-options .radio-label:has(input:checked) .choice-check{visibility:visible}
+.health-options .radio-label:focus-within{outline:3px solid #9acb7c;outline-offset:3px}
+.health-question:disabled .radio-label{cursor:default;opacity:.8}
+.intake-form label.confirmation{display:flex;align-items:flex-start;gap:10px;padding:16px;border-radius:12px;background:var(--sage-soft,#e8efdf)}
+.intake-form .confirmation input{margin-top:4px;flex-shrink:0}
+.intake-form .form-grid{gap:0 18px}
+.intake-form input:not([type=radio]):not([type=checkbox]),.intake-form select{border-radius:10px;padding:12px 14px;min-height:46px}
+@media(max-width:600px){.studio-modal>header{padding:16px}.studio-modal-body{padding:16px}.studio-modal>header h2{font-size:22px}.profile-section-heading{flex-wrap:wrap}.health-options .radio-label{flex:1;min-width:110px}.intake-form .health-question{padding:12px}.profile-section-heading .profile-answer-count{margin-left:54px}}
+
+.processing-status { display:flex; align-items:center; gap:.65rem; padding:.8rem 1rem; border-radius:12px; background:var(--surface-soft, #eef3e8); }
+.processing-status svg { flex-shrink:0; }
+@media (prefers-reduced-motion: reduce) { .spin { animation:none !important; } }

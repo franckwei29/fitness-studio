@@ -32,7 +32,7 @@ router = APIRouter(prefix="/api/me")
 
 def plan_summary(db, user_id):
     from app.activation import plan_fingerprint
-    from app.catalogue import exercise_catalogue, food_catalogue
+    from app.catalogue import catalogue_labels
 
     member = db.scalar(select(Member).where(Member.user_id == user_id))
     current = db.get(CurrentPlans, member.id) if member else None
@@ -61,7 +61,7 @@ def plan_summary(db, user_id):
                 "availability": usable,
             }
         )
-    result["labels"] = {p.id: p.name for p in [*food_catalogue().values(), *exercise_catalogue().values()]}
+    result["labels"] = catalogue_labels([p["content"] for p in result["plans"]])
     return result
 
 
@@ -121,6 +121,7 @@ def activity_view(db, request):
             status, detail = "Expired", "This update expired. Start a new conversation to continue."
     elif request.status == "Waiting":
         status, detail, _ = waiting_status(reason)
+        needs = reason == "ContextCapacityExceeded"
     elif request.status in {"Completed", "AwaitingConfirmation"}:
         status, detail = "Answer ready", "Your answer is available in the conversation."
         if (request.result or {}).get("needs_input"):
@@ -247,7 +248,7 @@ def activity_view(db, request):
         "created_at": request.created_at.isoformat() + "Z",
         "can_cancel": request.status in {"Queued", "Running", "Waiting", "AwaitingConfirmation"},
         "in_progress": request.status in {"Queued", "Running"},
-        "no_action_needed": request.status in {"Queued", "Running", "Waiting"},
+        "no_action_needed": request.status in {"Queued", "Running"} or (request.status == "Waiting" and waiting_status(reason)[2]),
         "auto_resume": request.status == "Waiting" and waiting_status(reason)[2],
         "stages": [
             {

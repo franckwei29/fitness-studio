@@ -6,6 +6,22 @@ CHECKING = "We’re checking the previous attempt before continuing, so your req
 
 
 def waiting_status(reason):
+    if reason == "ContextCapacityExceeded":
+        return ("Conversation too large", "This request exceeds the model’s context capacity. Cancel this update and start a new conversation with the plan you want to change. Your current plan is unchanged.", False)
+    if reason == "TokenCountUnavailable":
+        return ("Temporarily delayed", "We could not check the request size. Your request is saved and will retry when this service is available.", True)
+    if reason == "CatalogueLookupFailed":
+        return (
+            "Unable to look up this item",
+            "We could not retrieve usable data for the requested food or activity. Please try again or describe the item differently. No replacement was added.",
+            False,
+        )
+    if reason == "CatalogueDietaryConflict":
+        return (
+            "Check dietary requirements",
+            "The requested food conflicts with your dietary requirements, or its dietary information is unknown. Please choose another food or clarify your request.",
+            False,
+        )
     if reason in {"BudgetRequired", "HourlyCallLimit", "ModelDispatchUnavailable"}:
         return "Temporarily delayed", DELAY, True
     if reason == "AccountDailyCallLimit":

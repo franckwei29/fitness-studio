@@ -1,23 +1,29 @@
-"""Catalogue-based nutrition totals; models never supply nutrient facts."""
+"""Backend portion totals from imported or explicitly estimated catalogue data."""
 
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import Field
 
 from app.agent_contracts import StrictModel
 
-NUTRITION_RULE_VERSION = "nutrition-structure-v1"
+NUTRITION_RULE_VERSION = "nutrition-catalogue-v2"
 
 
 class FoodDefinition(StrictModel):
     id: str
-    name: str
+    name: str = Field(min_length=1, max_length=1000)
     energy_kcal_per_100g: Decimal = Field(ge=0)
     protein_g_per_100g: Decimal = Field(ge=0, le=100)
     carbohydrate_g_per_100g: Decimal = Field(ge=0, le=100)
     fat_g_per_100g: Decimal = Field(ge=0, le=100)
     allergens: list[str]
     dietary_tags: list[str]
+    aliases: list[str] = []
+    preparation_state: str = "See food name"
+    brand: str | None = None
+    dietary_status_known: bool = True
+    origin: Literal["Imported", "External", "Estimate"] = "Imported"
     source_url: str
     catalogue_version: str
 
@@ -53,8 +59,11 @@ def calculate_totals(proposal, catalogue):
     return {key: str(value.quantize(Decimal("0.01"))) for key, value in totals.items()}
 
 
-def validate_nutrition(proposal, catalogue, training_id, excluded_allergens, required_tags):
+def validate_nutrition(proposal, catalogue, training_id, excluded_allergens, required_tags, required_ids=()):
     violations = []
+    used = {p.food_id for m in proposal.meals for p in m.portions}
+    if set(required_ids) - used:
+        violations.append("The draft omitted a requested food.")
     if proposal.training_version_id != training_id:
         violations.append("Nutrition does not reference the exact training version.")
     excluded = {item.casefold().strip() for item in excluded_allergens}
@@ -65,12 +74,13 @@ def validate_nutrition(proposal, catalogue, training_id, excluded_allergens, req
             if food is None:
                 violations.append(f"Unknown food catalogue entry: {portion.food_id}.")
                 continue
+            if (excluded or tags) and not food.dietary_status_known:
+                violations.append(f"Dietary information is unknown for {food.name}.")
             if excluded & {item.casefold().strip() for item in food.allergens}:
                 violations.append(f"Excluded allergen in {food.name}.")
             if not tags <= {item.casefold().strip() for item in food.dietary_tags}:
                 violations.append(f"Dietary requirements are not satisfied by {food.name}.")
-            if not food.source_url:
-                violations.append(f"Food provenance is missing: {food.id}.")
+
     totals = (
         None
         if any(portion.food_id not in catalogue for meal in proposal.meals for portion in meal.portions)

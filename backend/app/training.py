@@ -1,17 +1,26 @@
 """Typed training proposals and deterministic catalogue/availability checks."""
 
+from math import isfinite
+from typing import Literal
+
 from pydantic import Field, model_validator
 
 from app.agent_contracts import StrictModel
 
-TRAINING_RULE_VERSION = "training-structure-v1"
+TRAINING_RULE_VERSION = "training-met-v2"
 
 
 class ExerciseDefinition(StrictModel):
     id: str
-    name: str
+    name: str = Field(min_length=1, max_length=1000)
     equipment: list[str]
     instructions: list[str]
+    aliases: list[str] = []
+    category: str = "strength"
+    measurement: Literal["reps", "duration"] = "reps"
+    met: float = Field(default=3.5, gt=0, le=50, allow_inf_nan=False)
+    met_basis: str = "Estimated average activity intensity"
+    origin: str = "Estimate"
     source_url: str
     catalogue_version: str
 
@@ -20,7 +29,7 @@ class ExerciseSet(StrictModel):
     exercise_id: str
     sets: int = Field(ge=1, le=20)
     repetitions: int | None = Field(default=None, ge=1, le=100)
-    seconds_per_set: int = Field(ge=1, le=3600)
+    seconds_per_set: int = Field(ge=1, le=14400)
     rest_seconds: int = Field(ge=0, le=900)
     execution_notes: str = Field(min_length=1, max_length=1000)
 
@@ -55,9 +64,17 @@ class TrainingProposal(StrictModel):
         return self
 
 
-def validate_training(proposal: TrainingProposal, facts: dict, catalogue: dict[str, ExerciseDefinition]):
+def validate_training(
+    proposal: TrainingProposal, facts: dict, catalogue: dict[str, ExerciseDefinition], required_ids=()
+):
     """These checks establish structural fit, not clinical safety certification."""
     violations = []
+    used = {x.exercise_id for s in proposal.sessions for x in s.exercises}
+    if set(required_ids) - used:
+        violations.append("The draft omitted a requested activity.")
+    weight = facts.get("weight_kg")
+    if type(weight) not in (int, float) or not isfinite(weight) or weight <= 0:
+        violations.append("Confirmed weight is missing or invalid.")
     days = facts.get("available_days")
     minutes = facts.get("session_minutes")
     equipment = facts.get("equipment")
@@ -69,9 +86,6 @@ def validate_training(proposal: TrainingProposal, facts: dict, catalogue: dict[s
         violations.append("Confirmed session duration is missing or invalid.")
     if not isinstance(equipment, list) or any(not isinstance(item, str) for item in equipment):
         violations.append("Confirmed equipment is missing or invalid.")
-        available = set()
-    else:
-        available = {item.strip().casefold() for item in equipment}
     for session in proposal.sessions:
         if type(minutes) is int and session.duration_seconds() > minutes * 60:
             violations.append(f"Day {session.day} exceeds the confirmed session duration.")
@@ -80,10 +94,8 @@ def validate_training(proposal: TrainingProposal, facts: dict, catalogue: dict[s
             if not definition:
                 violations.append(f"Unknown exercise: {item.exercise_id}.")
                 continue
-            if not {value.strip().casefold() for value in definition.equipment} <= available:
-                violations.append(f"Equipment is unavailable for {definition.name}.")
-            if not definition.source_url or not definition.instructions:
-                violations.append(f"Exercise provenance or instructions are missing: {definition.id}.")
+            if not definition.instructions:
+                violations.append(f"Exercise instructions are missing: {definition.id}.")
     return {
         "passed": not violations,
         "violations": violations,
@@ -94,4 +106,36 @@ def validate_training(proposal: TrainingProposal, facts: dict, catalogue: dict[s
             "catalogue_versions": sorted({item.catalogue_version for item in catalogue.values()}),
             "session_seconds": [session.duration_seconds() for session in proposal.sessions],
         },
+    }
+
+
+def training_estimate(proposal, profile, catalogue):
+    """Gross estimated energy of exercise blocks only; never count rest/transition twice."""
+    weight = profile.get("weight_kg")
+    if type(weight) not in (int, float) or not isfinite(weight) or weight <= 0:
+        return None
+    sessions = []
+    for session in proposal.sessions:
+        entries = []
+        for item in session.exercises:
+            definition = catalogue.get(item.exercise_id)
+            if definition is None:
+                continue
+            seconds = item.sets * item.seconds_per_set
+            entries.append(
+                {
+                    "exercise_id": item.exercise_id,
+                    "seconds": seconds,
+                    "met": definition.met,
+                    "kcal": round(definition.met * weight * seconds / 3600, 1),
+                }
+            )
+        sessions.append(
+            {"day": session.day, "items": entries, "kcal": round(sum(x["kcal"] for x in entries), 1)}
+        )
+    return {
+        "weight_kg": weight,
+        "sessions": sessions,
+        "kcal": round(sum(s["kcal"] for s in sessions), 1),
+        "basis": "Estimated gross energy for exercise time only; warm-up, cooldown, transitions and rests excluded. Not measured activity.",
     }

@@ -30,6 +30,8 @@ STATUSES = {
     "Rejected",
 }
 REASONS = {
+    "CatalogueLookupFailed",
+    "CatalogueDietaryConflict",
     "BudgetRequired",
     "HourlyCallLimit",
     "AccountDailyCallLimit",
@@ -37,6 +39,8 @@ REASONS = {
     "PolicyReview",
     "UsageReconciliation",
     "TechnicalReview",
+    "ContextCapacityExceeded",
+    "TokenCountUnavailable",
     "ExecutorUnavailable",
     "CandidateValidation",
     "DeadlineExpired",

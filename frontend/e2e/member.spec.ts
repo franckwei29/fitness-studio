@@ -13,6 +13,7 @@ test('member registers, confirms intake, and retains a conversation',async({page
   await page.getByRole('button',{name:'My profile'}).click();
   await page.getByRole('button',{name:'Start my intake'}).click();
   await page.getByLabel('Age',{exact:true}).fill('28');
+  await page.getByLabel('Weight (kg)',{exact:true}).fill('70.5');
   await page.getByLabel('Training experience').selectOption('Beginner');
   await page.getByLabel('Available days per week').fill('3');
   await page.getByLabel('Minutes per session').fill('45');

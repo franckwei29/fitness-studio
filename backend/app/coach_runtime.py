@@ -9,7 +9,6 @@ from app.agent_contracts import COMMON_INSTRUCTION
 from app.agent_graph import graph_config, persistent_graph
 from app.agent_versions import resolve_version
 from app.candidate_correction import correction_context, queue_correction
-from app.catalogue import exercise_catalogue
 from app.cycle_requests import cycle_baseline
 from app.cycle_review import CycleFeedback, validate_cycle_adjustment
 from app.database import transaction
@@ -30,17 +29,17 @@ from app.models import (
 from app.plan_review import owner_review_context
 from app.planning_context import revision_context
 from app.policy import execution_context
-from app.training import TrainingProposal, validate_training
+from app.training import ExerciseDefinition, TrainingProposal, training_estimate, validate_training
 from app.work_queue import event, lock_claim
 
 COACH_INSTRUCTION = (
     COMMON_INSTRUCTION
     + """
 Your role is Coach. Propose a practical training schedule using only the supplied
-exercise catalogue and confirmed equipment. Fit the confirmed available days and
+exercise catalogue. Prefer equipment from the profile when choosing suggestions, but never exclude a member-requested activity because equipment or a venue is not listed. Fit the confirmed available days and
 session duration, including warmup, cooldown, transitions, and rests. Do not invent
 exercise IDs. Use controlled movements and describe progression conservatively.
-Explain limitations honestly; the catalogue supports basic home strength training.
+Include every requested_exercise_id. Timed cardio and sports use one set with seconds_per_set as duration and zero rest. Equipment is advice only. All calorie figures are estimates computed by the application.
 This output contains the training component only. A separate Nutrition role handles
 food-based meal planning through the application coordinator. The absence of food
 entries in your exercise catalogue or meal fields in your output schema is an
@@ -62,22 +61,10 @@ def run_coach(claim):
                 raise ValueError("A training generation request is required.")
             baseline = cycle_baseline(db, request, authorized["member_id"])
             version = resolve_version(db, item, authorized, COACH_INSTRUCTION)
-            available = {
-                str(value).casefold().strip() for value in authorized["profile"].get("equipment", [])
-            }
-            exercises = [
-                row.model_dump()
-                for row in exercise_catalogue().values()
-                if {name.casefold() for name in row.equipment} <= available
-            ]
-            if not exercises:
-                from app.policy import PolicyDenied
-
-                raise PolicyDenied("Confirm available equipment before requesting a supported training plan.")
             return {
                 "context": {
                     "profile": authorized["profile"],
-                    "exercise_catalogue": exercises,
+                    "exercise_catalogue": [],
                     "request": request.payload["content"],
                     "agent_version_id": version.id,
                     **correction_context(db, item, request, authorized),
@@ -97,12 +84,23 @@ def run_coach(claim):
             }
 
     def infer(state):
-        output, call_id = generate(claim, COACH_INSTRUCTION, state["context"], TrainingProposal, 4096)
-        return {"candidate": {"proposal": output.model_dump(), "call_id": call_id}}
+        from app.catalogue_resolver import candidates
+
+        context = dict(state["context"])
+        rows, required = candidates(claim, "exercise", context)
+        context["exercise_catalogue"] = [r.model_dump(mode="json") for r in rows]
+        context["requested_exercise_ids"] = required
+        output, call_id = generate(claim, COACH_INSTRUCTION, context, TrainingProposal, 4096)
+        return {"context": context, "candidate": {"proposal": output.model_dump(), "call_id": call_id}}
 
     def validate(state):
         output = TrainingProposal.model_validate(state["candidate"]["proposal"])
-        result = validate_training(output, state["context"]["profile"], exercise_catalogue())
+        result = validate_training(
+            output,
+            state["context"]["profile"],
+            {r["id"]: ExerciseDefinition.model_validate(r) for r in state["context"]["exercise_catalogue"]},
+            state["context"].get("requested_exercise_ids", []),
+        )
         return {"validation": result, "requires_confirmation": False}
 
     def commit(state):
@@ -118,7 +116,15 @@ def run_coach(claim):
             call = db.get(ModelCall, state["candidate"]["call_id"])
             if not call or call.request_id != request.id or call.status != "Settled":
                 raise ValueError("A settled model result is required.")
-            validation = validate_training(output, authorized["profile"], exercise_catalogue())
+            validation = validate_training(
+                output,
+                authorized["profile"],
+                {
+                    r["id"]: ExerciseDefinition.model_validate(r)
+                    for r in state["context"]["exercise_catalogue"]
+                },
+                state["context"].get("requested_exercise_ids", []),
+            )
             baseline = cycle_baseline(db, request, member.id)
             if baseline:
                 cycle_check = validate_cycle_adjustment(
@@ -146,7 +152,23 @@ def run_coach(claim):
                 config_version=authorized["versions"]["group"],
                 agent_version_id=state["context"]["agent_version_id"],
                 baseline_id=current.training_id if current else None,
-                content=output.model_dump(),
+                content=output.model_dump()
+                | {
+                    "catalogue_snapshot": {
+                        r["id"]: r
+                        for r in state["context"]["exercise_catalogue"]
+                        if r["id"]
+                        in {x.exercise_id for session in output.sessions for x in session.exercises}
+                    },
+                    "training_estimate": training_estimate(
+                        output,
+                        authorized["profile"],
+                        {
+                            r["id"]: ExerciseDefinition.model_validate(r)
+                            for r in state["context"]["exercise_catalogue"]
+                        },
+                    ),
+                },
                 rationale=output.rationale,
                 fingerprint="pending",
             )

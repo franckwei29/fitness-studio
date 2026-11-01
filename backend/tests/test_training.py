@@ -50,7 +50,7 @@ def catalogue():
 
 
 def facts(**changes):
-    return dict(available_days=3, session_minutes=45, equipment=["Dumbbells"]) | changes
+    return dict(weight_kg=70, available_days=3, session_minutes=45, equipment=["Dumbbells"]) | changes
 
 
 def test_duration_includes_sets_rest_warmup_and_transitions():
@@ -60,8 +60,8 @@ def test_duration_includes_sets_rest_warmup_and_transitions():
     assert not validate_training(plan, facts(session_minutes=15), catalogue())["passed"]
 
 
-def test_unavailable_equipment_and_unknown_exercises_fail():
-    assert not validate_training(proposal(), facts(equipment=[]), catalogue())["passed"]
+def test_equipment_is_a_preference_but_unknown_exercises_fail():
+    assert validate_training(proposal(), facts(equipment=[]), catalogue())["passed"]
     assert not validate_training(proposal(), facts(), {})["passed"]
 
 

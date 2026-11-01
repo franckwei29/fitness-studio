@@ -7,6 +7,7 @@ from app.models import ChangeRequest, Member, MemberGroup, ProfileSnapshot, User
 PROFILE_FIELDS = {
     "Intake": frozenset(
         {
+            "weight_kg",
             "age",
             "goal",
             "experience",
@@ -24,6 +25,7 @@ PROFILE_FIELDS = {
     ),
     "Coach": frozenset(
         {
+            "weight_kg",
             "age",
             "goal",
             "experience",

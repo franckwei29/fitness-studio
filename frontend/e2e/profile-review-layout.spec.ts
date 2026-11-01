@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 for(const width of [320,390,768,1440])for(const saved of [false,true])test(`profile review geometry ${width} saved=${saved}`,async({page})=>{
  await page.setViewportSize({width,height:1000});
- const facts={age:24,goal:'Build basic strength and a consistent exercise routine with clear beginner instructions.',experience:'Beginner',available_days:3,session_minutes:30,equipment:['Stable chair'],dietary_restrictions:['Milk'],prescribed_exercise:false,prescribed_nutrition:false,medical_supervision:false,pregnancy_postpartum:false,postoperative_acute_injury:false,resolved_past_injury:false};
+ const facts={age:24,weight_kg:70.5,goal:'Build basic strength and a consistent exercise routine with clear beginner instructions.',experience:'Beginner',available_days:3,session_minutes:30,equipment:['Stable chair'],dietary_restrictions:['Milk'],prescribed_exercise:false,prescribed_nutrition:false,medical_supervision:false,pregnancy_postpartum:false,postoperative_acute_injury:false,resolved_past_injury:false};
  await page.route('**/api/**',async route=>{const p=new URL(route.request().url()).pathname;let data:any=[];
  if(p.endsWith('/events'))return route.fulfill({contentType:'text/event-stream',body:': reconnect\n\n'});
  if(p==='/api/auth/me')data={user:{id:'u',role:'Member',display_name:'Alex Demo'},csrf_token:'x'};

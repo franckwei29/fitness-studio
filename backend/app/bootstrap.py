@@ -23,6 +23,9 @@ DEFAULT_CONFIGURATION = {
 
 
 def bootstrap():
+    from app.catalogue import seed_catalogues
+
+    seed_catalogues()
     settings = get_settings()
     with transaction() as db:
         if not db.scalar(select(User).where(User.email == settings.owner_email)):

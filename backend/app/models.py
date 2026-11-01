@@ -32,6 +32,24 @@ class Record:
     created_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6), default=now)
 
 
+class FoodRecord(Base):
+    __tablename__ = "food_catalogue"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    lookup_key: Mapped[str] = mapped_column(String(64), unique=True)
+    search_text: Mapped[str] = mapped_column(Text)
+    data: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class ExerciseRecord(Base):
+    __tablename__ = "exercise_catalogue"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    lookup_key: Mapped[str] = mapped_column(String(64), unique=True)
+    search_text: Mapped[str] = mapped_column(Text)
+    data: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
 class User(Record, Base):
     __tablename__ = "users"
     email: Mapped[str] = mapped_column(String(254), unique=True)

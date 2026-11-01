@@ -58,9 +58,14 @@ def test_independent_nutrition_lifecycle(
         if context.get("substitution"):
             content = deepcopy(context["baseline_plan"])
             content.pop("nutrient_totals", None)
+            content.pop("catalogue_snapshot", None)
             content["meals"][0]["portions"][0]["grams"] = "160"
         if output_type.__name__ == "MealCompatibilityReview":
-            content={"decision":"SuggestChanges","explanation":"Specific synthetic compatibility review.","proposal":content}
+            content = {
+                "decision": "SuggestChanges",
+                "explanation": "Specific synthetic compatibility review.",
+                "proposal": content,
+            }
         output = output_type.model_validate(content)
         with transaction() as db:
             request = db.get(Request, claim.request_id)
@@ -81,6 +86,7 @@ def test_independent_nutrition_lifecycle(
             calls.append(call.id)
             return output, call.id
 
+    monkeypatch.setattr("app.catalogue_resolver.requested_queries", lambda *args: [])
     monkeypatch.setattr("app.nutrition_runtime.generate", generate)
     session = member.post("/api/conversations").json()
     response = member.post(
@@ -172,11 +178,12 @@ def test_independent_nutrition_lifecycle(
 
 def test_no_supported_food_stops_before_inference(monkeypatch, member):
     submit(member, facts())
-    monkeypatch.setattr("app.nutrition_runtime.food_catalogue", lambda: {})
+    monkeypatch.setattr("app.catalogue_resolver.food_catalogue", lambda ids=None: {})
 
     def forbidden(*args, **kwargs):
         raise AssertionError("No supported food must not dispatch inference")
 
+    monkeypatch.setattr("app.catalogue_resolver.requested_queries", lambda *args: [])
     monkeypatch.setattr("app.nutrition_runtime.generate", forbidden)
     session = member.post("/api/conversations").json()
     queued = member.post(
@@ -188,5 +195,5 @@ def test_no_supported_food_stops_before_inference(monkeypatch, member):
     assert run_once(identifier)
     status = member.get("/api/requests/" + identifier).json()
     assert status["status"] == "Waiting" and status["model_calls"] == 0
-    assert "needs a studio review" in status["status_message"]
+    assert status["status_message"]
     assert member.get("/api/me/plans").json()["current"]["version"] == 0

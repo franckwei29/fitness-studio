@@ -260,7 +260,7 @@ def finalize(
     db, flow, request, text="Review the final changes. Your current routine stays in use until you confirm."
 ):
     member, group = verify_context(db, flow)
-    from app.catalogue import exercise_catalogue, food_catalogue
+    from app.catalogue import catalogue_labels
 
     plans = [db.get(PlanVersion, x) for x in (flow.training_id, flow.nutrition_id) if x]
     pair = db.get(PlanPair, flow.pair_id) if flow.pair_id else None
@@ -294,9 +294,7 @@ def finalize(
                         "training": next((p.content for p in plans if p.kind == "Training"), None),
                         "nutrition": next((p.content for p in plans if p.kind == "Nutrition"), None),
                         "validation": (request.result or {}).get("validation"),
-                        "catalogue_labels": {
-                            p.id: p.name for p in [*food_catalogue().values(), *exercise_catalogue().values()]
-                        },
+                        "catalogue_labels": catalogue_labels([p.content for p in plans]),
                     },
                     expires_at=min(request.deadline, now() + timedelta(hours=24)),
                 )

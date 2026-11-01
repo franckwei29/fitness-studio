@@ -91,6 +91,7 @@ def test_combined_candidate_to_atomic_activation(monkeypatch, first_invalid):
         if context.get("substitution"):
             content = deepcopy(context["baseline_plan"])
             content.pop("nutrient_totals", None)
+            content.pop("catalogue_snapshot", None)
             selection = context["substitution"]
             content["meals"][selection["meal_index"]]["portions"][selection["portion_index"]] = {
                 "food_id": "F000262",
@@ -142,6 +143,7 @@ def test_combined_candidate_to_atomic_activation(monkeypatch, first_invalid):
             return output, call.id
 
     monkeypatch.setattr("app.coach_runtime.generate", synthetic_generate)
+    monkeypatch.setattr("app.catalogue_resolver.requested_queries", lambda *args: [])
     monkeypatch.setattr("app.nutrition_runtime.generate", synthetic_generate)
     with TestClient(app) as client:
         auth = client.post(
@@ -156,6 +158,7 @@ def test_combined_candidate_to_atomic_activation(monkeypatch, first_invalid):
         assessment = client.post("/api/assessments").json()
         facts = dict(
             age=28,
+            weight_kg=70.5,
             goal="Build strength",
             experience="Beginner",
             available_days=3,

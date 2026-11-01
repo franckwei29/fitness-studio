@@ -73,7 +73,11 @@ def test_owner_revisions_remain_in_original_request(monkeypatch, member, owner_c
                 "limitations": ["Synthetic meal example, not a daily recommendation."],
             }
         if output_type.__name__ == "MealCompatibilityReview":
-            content={"decision":"SuggestChanges","explanation":"Specific synthetic compatibility review.","proposal":content}
+            content = {
+                "decision": "SuggestChanges",
+                "explanation": "Specific synthetic compatibility review.",
+                "proposal": content,
+            }
         output = output_type.model_validate(content)
         with transaction() as db:
             request = db.get(Request, claim.request_id)
@@ -94,6 +98,7 @@ def test_owner_revisions_remain_in_original_request(monkeypatch, member, owner_c
             return output, call.id
 
     monkeypatch.setattr("app.coach_runtime.generate", generate)
+    monkeypatch.setattr("app.catalogue_resolver.requested_queries", lambda *args: [])
     monkeypatch.setattr("app.nutrition_runtime.generate", generate)
     session = member.post("/api/conversations").json()
     queued = member.post(

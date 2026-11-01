@@ -42,6 +42,10 @@ def owned(db, model, identifier, user, lock=False):
 
 
 WAIT_MESSAGES = {
+    "ContextCapacityExceeded": "The complete request exceeds the model context capacity. Start a new conversation with the relevant plan.",
+    "TokenCountUnavailable": "Input token counting is temporarily unavailable; the saved request will retry.",
+    "CatalogueLookupFailed": "The requested catalogue item could not be retrieved after bounded attempts.",
+    "CatalogueDietaryConflict": "The requested food has conflicting or unknown dietary information.",
     "BudgetRequired": "Waiting for model budget to be configured or replenished.",
     "ModelDispatchUnavailable": "Waiting for model access or an available dispatch slot.",
     "HourlyCallLimit": "The selected model’s hourly allowance has been reached. Wait for capacity, then ask the owner to request recovery.",
@@ -333,7 +337,9 @@ def submit_message(identifier: str, body: Submission, user: User = Depends(princ
             if previous.fingerprint != digest:
                 raise HTTPException(409, "This submission key was used for different content.")
             return previous.result
-        if (body.operations_ai or body.owner_agent) and (user.role != "Owner" or body.purpose != "Operations"):
+        if (body.operations_ai or body.owner_agent) and (
+            user.role != "Owner" or body.purpose != "Operations"
+        ):
             raise HTTPException(403, "AI operations analysis requires an owner operations request.")
         if body.purpose == "Auto":
             from app.intent_router import submit_auto

@@ -1,6 +1,8 @@
 """Version-bound requests and change-scope checks for food substitutions."""
 
+from copy import deepcopy
 from datetime import timedelta
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -63,6 +65,29 @@ def substitution_baseline(db, request, member_id):
     return baseline
 
 
+def assemble_substitution(output, baseline, selection):
+    """Apply only authorized positions; never trust model copies of other meals."""
+    from app.nutrition import NutritionProposal
+
+    proposed = output.model_dump(mode="json")
+    before, after = baseline["meals"], proposed["meals"]
+    selected = selection.get("selections") or [selection]
+    # Reject reordered or structurally changed meals instead of applying wrong positions.
+    if len(before) != len(after) or any(
+        a["name"] != b["name"] or len(a["portions"]) != len(b["portions"])
+        for a, b in zip(before, after)
+    ):
+        return output
+    meals = deepcopy(before)
+    for target in selected:
+        i, j = target["meal_index"], target["portion_index"]
+        if not (0 <= i < len(before) and 0 <= j < len(before[i]["portions"])):
+            raise PolicyDenied("Select an existing meal portion from the current plan.")
+        meals[i]["portions"][j] = after[i]["portions"][j]
+        meals[i]["preparation"] = after[i]["preparation"]
+    return NutritionProposal.model_validate(proposed | {"meals": meals})
+
+
 def check_substitution(output, baseline, selection):
     before = baseline["meals"]
     after = output.model_dump(mode="json")["meals"]
@@ -81,7 +106,11 @@ def check_substitution(output, baseline, selection):
             for offset, (a, b) in enumerate(zip(old["portions"], new["portions"], strict=True)):
                 if (index, offset) not in selected and a != b:
                     return ["A substitution changed an unselected portion."]
-                if (index, offset) in selected and a == b:
+                if (
+                    (index, offset) in selected
+                    and a["food_id"] == b["food_id"]
+                    and Decimal(str(a["grams"])) == Decimal(str(b["grams"]))
+                ):
                     return ["A selected portion was not changed."]
     return []
 

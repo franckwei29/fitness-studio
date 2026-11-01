@@ -38,7 +38,7 @@ Sign in with the owner credentials from `.env`; members register their own accou
 
 Enabling calls requires the selected provider’s API key, `MODEL_CALLS_ENABLED=true`, and sufficient configured budgets for every applicable scope: global, role, member, and group. Intake before membership uses global and role scopes. The API key stays on the server. Restart API and worker after changing environment settings.
 
-Normal chat makes one inference request per response. Combined training and nutrition generation normally makes two. Viewing pages, approving saved candidates, and deterministic reminders make no model calls. The per-provider/model quota is 100 calls per rolling hour (`MODEL_HOURLY_CALL_LIMIT`); each authenticated account separately has 200 calls per rolling 24 hours (`MODEL_ACCOUNT_DAILY_CALL_LIMIT`). All roles and evaluations share these gates. Concurrency remains separately controlled. Provider account limits may be lower. Unknown provider usage retains its reservation until reconciled, rather than being treated as free.
+Normal chat makes one inference request per response. Plan preparation also extracts explicitly requested catalogue items. Local misses add a budgeted OpenAI search and a structured-data call per item; local cache hits avoid these two supplement calls. Combined plans therefore use a variable number of calls. Viewing pages, approving saved candidates, and deterministic reminders make no model calls. The per-provider/model quota is 100 calls per rolling hour (`MODEL_HOURLY_CALL_LIMIT`); each authenticated account separately has 200 calls per rolling 24 hours (`MODEL_ACCOUNT_DAILY_CALL_LIMIT`). All roles and evaluations share these gates. Concurrency remains separately controlled. Provider account limits may be lower. Unknown provider usage retains its reservation until reconciled, rather than being treated as free.
 
 Domain validation failures may queue up to two additional corrective generations shared by the original request. Corrections use the same budget scopes, call ceiling, and deadline. Invalid candidates are retained in history and never activated; exhausting a correction limit stops the request.
 
@@ -110,3 +110,46 @@ Implementation references: [LangSmith manual tracing API](https://docs.langchain
 Stop the worker before upgrading. After rebuilding the API, run `docker compose -f compose.yaml -f compose.app.yaml exec -T api python -m app.quota_migration`, then restart the worker. This preserves recent legacy calls in per-account buckets; global hourly history also imports the legacy ledger. Do not clear Redis when changing quotas.
 
 See [Model providers](MODEL_PROVIDERS.md) for provider selection, immutable generation settings, and the migration procedure.
+
+
+## V1 catalogues and an isolated fresh instance
+
+See [Catalogue V1 implementation and verification](CATALOGUE_V1.md) for data attribution, estimates, failures, and the 99-item exercise list. Initialization now also imports 3,741 AUSNUT foods and 99 exercises, idempotently. All new members must confirm a positive `weight_kg`; this release does not migrate old profiles.
+
+To start a separate fresh database without changing your existing instance, create a separate private `.env.v1` using the settings above with independent secrets and these additional values:
+
+```dotenv
+APP_ENV_FILE=.env.v1
+DATABASE_NAME=fitness_v1
+DATABASE_PORT=33336
+REDIS_PORT=36399
+WEB_PORT=8098
+```
+
+Use the matching database name/port in `DATABASE_URL` for host-side tools. Container URLs are set by Compose. Keep `.env.v1` private (it matches the repository ignore rules).
+
+```sh
+docker compose --project-name fitness-v1 --env-file .env.v1 -f compose.yaml -f compose.app.yaml up --build -d
+```
+
+Open `http://localhost:8098`. The project name creates separate MySQL/Redis volumes; no removal of existing volumes is needed. Startup uses the bundled compressed food seed, so it needs no FSANZ network request. External supplementation requires OpenAI credentials even if the primary structured-output provider is Gemini.
+
+## Meal replacement and OpenAI context handling
+
+Food substitutions apply model changes only to the selected portions and preparation
+instructions for their meals. Unselected meals and portions are copied from the bound
+baseline before full nutrition and scope validation. Drafts still require explicit
+member confirmation. Natural-language requests to replace a food in the active plan
+use the same preview; requests to revise an open draft stay in that workflow.
+
+OpenAI requests are no longer limited to 64 KB of JSON. Before generation, the gateway
+uses `/v1/responses/input_tokens` with the complete input, instructions and schema.
+GPT-6 Luna accepts input up to its 1,050,000-token context window minus the task's
+configured output limit and 25,000 tokens of headroom. Input is never silently truncated.
+A failed count waits for service recovery; a capacity error asks the member to cancel
+and start a new conversation. Neither is presented as a studio policy review.
+Long-context usage above 272,000 input tokens uses the applicable long-context rates;
+existing budget and rate-limit controls remain in place.
+
+Verification: [model specification](https://developers.openai.com/api/docs/models/gpt-6-luna),
+[token counting](https://developers.openai.com/api/docs/guides/token-counting).
