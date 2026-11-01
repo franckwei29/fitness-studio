@@ -35,6 +35,7 @@ def write_registry():
         group_configuration,
         incidents,
         member_admin,
+        owner_comparison,
         rollback_recovery,
         version_admin,
     )
@@ -52,6 +53,12 @@ def write_registry():
         "members.assign": (member_admin.BulkAssignment, member_admin.assign_members, False, "members"),
         "comparison.current": (
             version_admin.CurrentModelComparison,
+            version_admin.compare_current,
+            False,
+            "versions",
+        ),
+        "comparison.run_current": (
+            owner_comparison.ChatComparison,
             version_admin.compare_current,
             False,
             "versions",
@@ -112,11 +119,19 @@ def tool_catalog():
         "write": {
             name: {
                 "target_required": targeted,
+                **(
+                    {
+                        "description": "Compare a group's effective role model with a DIFFERENT model; same-model comparisons are rejected. Automatically preserves EXACTLY the current instructions and identical fixed test cases for both models. Works with zero saved versions: creates/reuses baseline and candidate, prepares AND starts the live comparison upon one owner confirmation. No manual candidate selection or additional preparation/start approval is needed."
+                    }
+                    if name == "comparison.run_current"
+                    else {}
+                ),
                 "arguments_schema": schema.model_json_schema()
                 if schema
                 else {"type": "object", "properties": {}},
             }
             for name, (schema, _, targeted, _) in write_registry().items()
+            if name not in {"comparison.current", "comparison.prepare"}
         },
         "panels": [
             "dashboard",
@@ -321,10 +336,14 @@ def read_tool(tool, user):
     return jsonable_encoder(result)
 
 
-def validate_action(tool):
+def validate_action(tool, *, proposal=False):
     registry = write_registry()
     if tool.name not in registry:
         raise ValueError("This action is not available to the agent. Use its in-conversation panel.")
+    if proposal and tool.name in {"comparison.prepare", "comparison.current"}:
+        raise ValueError(
+            "Use comparison.run_current with a real group_id, role and model. Version IDs are not group IDs; the complete action prepares and starts the comparison after confirmation."
+        )
     schema, _, targeted, _ = registry[tool.name]
     if targeted and not tool.target:
         raise ValueError("Choose an exact target before preparing an action.")
@@ -333,11 +352,23 @@ def validate_action(tool):
         args = schema.model_validate(args).model_dump(mode="json")
     elif args:
         raise ValueError("This action takes no additional arguments.")
+    if tool.name.startswith("comparison."):
+        from app.owner_comparison import preview, validate_legacy
+
+        validate_legacy(tool, args)
+        if tool.name in {"comparison.run_current", "comparison.current"}:
+            resolved = preview(schema.model_validate(args))
+            args["model"] = resolved["model"]
     return tool.model_copy(update={"arguments": json.dumps(args)})
 
 
 def budget_baseline(tool, evidence):
     """Capture reviewed limits, excluding usage accrued by the investigation itself."""
+    if tool.name == "comparison.run_current":
+        from app.owner_comparison import preview
+        from app.version_admin import CurrentModelComparison
+
+        return preview(CurrentModelComparison(**arguments(tool)))
     if tool.name != "budget.change":
         return None
     args = arguments(tool)
@@ -375,6 +406,15 @@ def execute_action(tool, user, baseline=None):
                 raise HTTPException(409, "The spending limit changed. Ask for an updated proposal.")
             args["expected_fingerprint"] = budget_view(row)["fingerprint"] if row else None
     body = schema.model_validate(args) if schema else None
+    if tool.name == "comparison.run_current":
+        from app.owner_comparison import execute
+
+        result = jsonable_encoder(execute(body, baseline, user))
+        return result, {
+            "page": "versions",
+            "id": result["candidate_id"],
+            "section": "evaluation:" + result["id"],
+        }
     # Decisions for configuration/release approvals must go through their own
     # lifecycle handlers, not the generic plan/intake decision service.
     if tool.name == "approval.decide":

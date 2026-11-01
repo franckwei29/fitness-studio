@@ -388,7 +388,17 @@ def comparison_detail(identifier: str, run_id: str, user: User = Depends(owner))
                 }
             )
         linked_release = evaluation_release(db, run)
+        release_eligible = False
+        release_block_reason = None
+        if run.status in {"Completed", "AwaitingReview", "Reviewed", "Rejected", "FailedChecks"}:
+            try:
+                verified_evidence(db, run)
+                release_eligible = True
+            except (PolicyDenied, ValueError) as exc:
+                release_block_reason = str(exc)
         return {
+            "release_eligible": release_eligible,
+            "release_block_reason": release_block_reason,
             "decision_fingerprint": decision_fingerprint(run),
             "release": {"id": linked_release.id, "status": linked_release.status} if linked_release else None,
             "models": models,

@@ -13,6 +13,10 @@ from app.pricing import price_for
 
 
 def verified_evidence(db, run):
+    if (run.summary or {}).get("owner_decision", {}).get("choice") == "KeepCurrent":
+        raise PolicyDenied(
+            "This comparison is closed: the current model was kept. Start a new comparison to propose a release."
+        )
     baseline, candidate = verify_evaluation_snapshot(db, run)
     if run.evidence_mode != "Live":
         raise PolicyDenied("Fixture results cannot authorize a model release.")
@@ -48,7 +52,9 @@ def verified_evidence(db, run):
             raise PolicyDenied("Evaluation task provenance is incomplete or inconsistent.")
         price = price_for(version.model)
         context = case["input"] | {"agent_version_id": version.id}
-        payload = build_payload(version.model, version.prompt, context, output_contract(run.role), 4096, version=version)
+        payload = build_payload(
+            version.model, version.prompt, context, output_contract(run.role), 4096, version=version
+        )
         digest = fingerprint({"work_id": item.id, "payload": payload})
         checks = score_case(run.role, case, row.output)
         if (
@@ -60,11 +66,12 @@ def verified_evidence(db, run):
             or call.output != row.output
             or row.input_fingerprint != fingerprint(case["input"])
             or call.actual_micros != price.actual(call.usage or {})
-            or not checks["passed"]
             or row.checks != checks
-            or not row.passed
+            or row.passed != checks["passed"]
         ):
             raise PolicyDenied("Evaluation evidence does not pass the current integrity and rule checks.")
+        if version.id == run.candidate_id and not checks["passed"]:
+            raise PolicyDenied("The candidate model failed the required checks and cannot be released.")
         evidence.append(
             {
                 "result_id": row.id,

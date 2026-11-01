@@ -11,6 +11,7 @@ from app.admission import fingerprint
 from app.agent_contracts import TECHNICAL_INSTRUCTION, StrictModel
 from app.agent_versions import resolve_version
 from app.database import atomic_business_transaction, transaction
+from app.gemini import ProviderFailure
 from app.model_gateway import generate
 from app.models import AuditEvent, ChatSession, Message, ModelCall, Request, User, WorkItem, now
 from app.owner_tools import (
@@ -22,6 +23,7 @@ from app.owner_tools import (
     validate_action,
 )
 from app.policy import PolicyDenied, execution_context
+from app.pricing import UsageUncertain
 from app.security import owner
 from app.work_queue import event, lock_claim
 
@@ -55,6 +57,10 @@ class OwnerTurn(StrictModel):
     changes: list[str] = Field(default_factory=list, max_length=8)
     remaining: list[str] = Field(default_factory=list, max_length=6)
     revises_request_id: str | None = None
+    revises_comparison: bool = Field(
+        default=False,
+        description="True when the owner changes or switches back a comparison's target/group/role, even if the new target is invalid and actions is empty. The server retires the previous comparison preview automatically.",
+    )
 
 
 INSTRUCTION = """
@@ -76,9 +82,35 @@ Keep unrelated ongoing tasks intact. Separate completed actions from proposals a
 A current explicit confirmation runs the saved preview without another model call.
 Use the local evidence panels for private approval details: you cannot inspect health facts.
 Never claim to have reviewed health content you cannot see. Quality ratings are not required for release. Explain recorded comparison results; never invent scores.
-Use comparison.current to compare the effective group model with another model, including on a fresh install.
+Use comparison.run_current to compare the effective group model with another model, including on a fresh install.
+Read groups and versions first. Pass the group's ID as group_id, the requested role, and the target model.
+This action automatically creates/reuses matching versions AND starts the live test after ONE confirmation.
+comparison.run_current GUARANTEES identical instructions and the same fixed test cases for both models.
+These are built-in invariants, not separate options. A request to keep instructions/test cases the same
+is fully supported: prepare the action immediately, never ask whether the owner accepts a different comparison.
+An empty versions list or null runtime_default.version_id is normal on a new installation:
+the action materializes the group's effective version automatically when confirmed. No prior member request is needed.
+Do not create candidates separately or ask the owner to select IDs or open a panel to start a comparison.
+If group, role, or target is missing and cannot be resolved from this conversation, ask in chat.
+New comparisons have no default group or role. Do not silently choose Canary, Default or Coach.
+For follow-ups, comparison_context retains the most recent comparison's group and role even when
+its proposal was dismissed/superseded or the last reply only explained an invalid target.
+Changing/backtracking the target model preserves that context unless the owner changes it.
+Set revises_comparison=true for changes/backtracking to a comparison's target, group or role,
+including an unsupported/same-model target with actions=[]. The server will retire the old preview;
+you do not need to copy a request ID. Leave it false for unrelated questions or independent new work.
+If the owner says to switch back to a supported model and wait for confirmation, prepare a NEW action now;
+do not ask whether they mean to re-prepare the comparison. Superseded means not executable, not forgotten.
+If a provider alias identifies multiple models, ask which model; never guess.
+Comparing the current model against itself is NOT supported. If target equals current model, explain this
+and ask for a different model. Never offer to run a same-model comparison or ask permission to do so.
+If the catalog has exactly one configured model for a provider, resolve that alias automatically;
+do not claim it is ambiguous or ask the owner to repeat the concrete model ID.
+For an unsupported name or missing information, offer the actual available choices and ask a concise question.
+If action_errors are supplied, correct the proposal using real records or ask for missing information.
+Never claim a comparison was prepared successfully when validation failed.
 Use members.assign for any number of selected members; never limit a trial to one member.
-Release approval and execution always require explicit owner confirmation of the exact version and group. Comparison start, exports,
+Release approval and execution always require explicit owner confirmation of the exact version and group. Exports,
 usage-slot release and cancellation use the panel. Full group configuration proposals must retain
 unchanged settings and agent_versions. 'Prepare'/'draft only' never authorizes release or execution.
 No unbounded loops: at most four model turns per message, up to three read tools per turn.
@@ -96,7 +128,21 @@ Use existing callable services only; when an action needs a detailed human decis
 
 
 def task_view(row):
-    state = (row.result or {}).get("owner_task", {})
+    state = dict((row.result or {}).get("owner_task", {}))
+    if state.get("status") == "Ready":
+        for index, raw in enumerate(state.get("actions", [])):
+            if not raw["name"].startswith("comparison."):
+                continue
+            try:
+                action = validate_action(ToolInput.model_validate(raw))
+                if action.name == "comparison.run_current":
+                    snapshot = (state.get("baselines") or [None] * len(state["actions"]))[index]
+                    latest = budget_baseline(action, [])
+                    if not snapshot or latest["fingerprint"] != snapshot["fingerprint"]:
+                        raise ValueError("Comparison settings changed. Prepare an updated proposal in chat.")
+            except (ValueError, KeyError, HTTPException, PolicyDenied, UsageUncertain) as exc:
+                state.update(status="NeedsCorrection", validation_error=str(getattr(exc, "detail", exc)))
+                break
     return {"id": row.id, "conversation_id": row.session_id, **state}
 
 
@@ -157,10 +203,8 @@ def decide_task(identifier: str, body: TaskDecision, user: User = Depends(owner)
                         user,
                         (state.get("baselines") or [None] * len(state["actions"]))[index],
                     )
-                except ValueError as exc:
-                    raise HTTPException(
-                        422, "This proposal is invalid. Ask for a corrected version."
-                    ) from exc
+                except (ValueError, PolicyDenied, UsageUncertain) as exc:
+                    raise HTTPException(422, "This proposal needs correction in chat: " + str(exc)) from exc
                 # Never feed private approval context or raw model output back
                 # into the conversational agent's history.
                 receipts.append(
@@ -177,6 +221,8 @@ def decide_task(identifier: str, body: TaskDecision, user: User = Depends(owner)
         if body.confirmation_text:
             db.add(Message(session_id=row.session_id, sender="User", content=body.confirmation_text))
         text = "The reviewed actions were saved. Open the records below to inspect their current state. Background processing and member confirmation remain separate."
+        if receipts and all(receipt["action"] == "comparison.run_current" for receipt in receipts):
+            text = "The comparison has started. Progress and results appear in this conversation automatically. No service model has changed."
         if body.decision == "Dismiss":
             text = "This proposal was dismissed. No proposed changes were applied."
         db.add(
@@ -233,6 +279,19 @@ def run_owner_agent(claim):
             "history": history,
             "tools": tool_catalog(),
             "evidence": [],
+            "comparison_context": next(
+                (
+                    {
+                        "source_request_id": earlier["request_id"],
+                        "proposal_status": earlier["task"].get("status"),
+                        **json.loads(action["arguments"]),
+                    }
+                    for earlier in reversed(history)
+                    for action in reversed(earlier["task"].get("actions", []))
+                    if action["name"] == "comparison.run_current"
+                ),
+                None,
+            ),
         }
     # Do not duplicate old investigation payloads indefinitely. The latest
     # proposal and its constraints remain intact; omitted older turns are explicit.
@@ -245,10 +304,33 @@ def run_owner_agent(claim):
         while len(json.dumps(context, ensure_ascii=False).encode()) > 45000 and len(context["history"]) > 1:
             context["history"].pop(0)
             context["older_turns_omitted"] = context.get("older_turns_omitted", 0) + 1
-        output, call_id = generate(claim, TECHNICAL_INSTRUCTION + INSTRUCTION, context, OwnerTurn, 4096)
+        try:
+            output, call_id = generate(claim, TECHNICAL_INSTRUCTION + INSTRUCTION, context, OwnerTurn, 4096)
+        except ProviderFailure as exc:
+            if not getattr(exc, "usage_settled", False):
+                raise
+            context["response_error"] = (
+                "The previous response was not valid structured output. Return a valid OwnerTurn matching the supplied schema."
+            )
+            output = OwnerTurn(
+                reply="The model could not produce a valid proposal. No action was applied. Please ask me to prepare the comparison again.",
+                goal="Prepare a valid comparison proposal",
+                remaining=["Retry the request in this conversation."],
+            )
+            continue
         calls.append(call_id)
         if not output.reads:
-            break
+            action_errors = []
+            for action in output.actions:
+                try:
+                    validate_action(action, proposal=True)
+                except (ValueError, KeyError, HTTPException, PolicyDenied, UsageUncertain) as exc:
+                    action_errors.append(str(getattr(exc, "detail", exc)))
+            if not action_errors:
+                break
+            context["action_errors"] = action_errors
+            context["invalid_actions"] = [a.model_dump() for a in output.actions]
+            continue
         for tool in output.reads:
             try:
                 result = read_tool(tool, user)
@@ -270,16 +352,19 @@ def run_owner_agent(claim):
     errors = []
     for action in output.actions:
         try:
-            validated = validate_action(action)
+            validated = validate_action(action, proposal=True)
             baseline = budget_baseline(validated, evidence)
             actions.append(validated.model_dump())
             baselines.append(baseline)
-        except (ValueError, KeyError) as exc:
-            errors.append(str(exc))
+        except (ValueError, KeyError, HTTPException, PolicyDenied, UsageUncertain) as exc:
+            errors.append(str(getattr(exc, "detail", exc)))
     if errors:
         actions = []
         baselines = []
         output.remaining += ["The proposed action needs correction: " + e[:200] for e in errors]
+        output.reply = "I could not prepare a valid comparison/action yet. " + " ".join(errors)
+    if output.revises_comparison and context["comparison_context"]:
+        output.revises_request_id = context["comparison_context"]["source_request_id"]
     with transaction() as db:
         current = db.get(WorkItem, claim.work_id)
         if current and current.status == "Completed":
@@ -297,7 +382,7 @@ def run_owner_agent(claim):
             old = previous.result["owner_task"]
             if old["status"] == "Ready":
                 previous.result = previous.result | {"owner_task": old | {"status": "Superseded"}}
-        digest = fingerprint({"request_id": request.id, "actions": actions})
+        digest = fingerprint({"request_id": request.id, "actions": actions, "baselines": baselines})
         state = {
             "goal": output.goal,
             "reply": output.reply,
@@ -305,6 +390,7 @@ def run_owner_agent(claim):
             "fingerprint": digest,
             "actions": actions,
             "baselines": baselines,
+            "comparisons": [b for a, b in zip(actions, baselines) if a["name"] == "comparison.run_current"],
             "changes": output.changes,
             "remaining": output.remaining,
             "evidence": [e.model_dump(exclude_none=True) for e in output.evidence],

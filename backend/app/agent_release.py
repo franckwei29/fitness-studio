@@ -34,7 +34,7 @@ router = APIRouter(prefix="/api/owner/releases")
 
 
 def release_evidence(db, run):
-    if not run or run.status not in {"Completed", "AwaitingReview", "Reviewed", "Rejected"}:
+    if not run or run.status not in {"Completed", "AwaitingReview", "Reviewed", "Rejected", "FailedChecks"}:
         raise PolicyDenied("A completed live comparison is required before owner approval.")
     # Quality ratings are historical annotations, not release authorization.
     # Reconstruct actual provider evidence on proposal, approval and execution.
@@ -167,7 +167,10 @@ def propose_release(body: ReleaseProposal, user: User = Depends(owner)):
             raise HTTPException(422, "An expanded release must target another member group.")
         if group.version != body.expected_group_version:
             raise HTTPException(409, "The target group changed. Refresh the proposal.")
-        run = db.get(EvaluationRun, body.evaluation_id)
+        # Serialize release preparation with the final keep-current decision.
+        run = db.scalar(
+            select(EvaluationRun).where(EvaluationRun.id == body.evaluation_id).with_for_update()
+        )
         try:
             evidence = release_evidence(db, run)
             baseline_version = verify_version(db.get(AgentVersion, run.baseline_id), run.role)
