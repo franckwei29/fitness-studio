@@ -84,7 +84,7 @@ def run_evaluation(claim):
                 "completed_cases": len(rows),
                 "passed_cases": sum(row.passed for row in rows),
                 "manual_review_required": False,
-                "release_eligible": all(row.passed for row in rows),
+                "release_eligible": all(row.passed for row in rows if row.agent_version_id == run.candidate_id),
                 "owner_approval_required": True,
             }
         return request.result

@@ -172,7 +172,12 @@ def generate(
                         },
                     )
                 )
-            if catalogue_task and isinstance(exc, ProviderFailure) and exc.provider_id and exc.usage:
+            if (
+                (catalogue_task or request.payload.get("owner_agent"))
+                and isinstance(exc, ProviderFailure)
+                and exc.provider_id
+                and exc.usage
+            ):
                 try:
                     failed_cost = price.actual(exc.usage)
                     if failed_cost > reservation_micros:
@@ -181,7 +186,7 @@ def generate(
                     pass
                 else:
                     # Invalid structured output is still billable. Settle known usage so
-                    # the bounded resolver retry can acquire a fresh concurrency slot.
+                    # a bounded resolver/owner-chat retry can acquire a fresh slot.
                     settle(call_id, failed_cost, exc.usage, exc.provider_id, None)
                     gate.release(call_id)
                     exc.usage_settled = True

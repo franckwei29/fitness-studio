@@ -9,7 +9,7 @@ for(const width of [320,390,1440])for(const theme of ['light','dark'] as const){
  else if(path==='/api/owner/updates')data={needs_action:1,items:[]};
  else if(path==='/api/conversations'||path==='/api/owner/groups')data=[];
  else if(path==='/api/owner/agent-versions')data={default_model:'gpt-6-luna',versions:[{id:'candidate',role:'Coach',label:'Gemini trial',model:'gemini-3.5-flash-lite',prompt:'Fixed test instructions',configured_groups:[]}]};
- else if(path.endsWith('/evaluations/run'))data={decision_fingerprint:'test',release:null,run:{id:'run',baseline_id:'current',candidate_id:'candidate',status:'Completed',evidence_mode:'Live',cases:[],suite_version:'fixture'},models:[],results:[],tasks:[],usage:{calls:0,settled_micros:0,unknown_calls:0}};
+ else if(path.endsWith('/evaluations/run'))data={release_eligible:true,decision_fingerprint:'test',release:null,run:{id:'run',baseline_id:'current',candidate_id:'candidate',status:'Completed',evidence_mode:'Live',cases:[],suite_version:'fixture'},models:[],results:[],tasks:[],usage:{calls:0,settled_micros:0,unknown_calls:0}};
  else throw Error('Unexpected fixture '+path);
  await route.fulfill({json:data});});
  await page.goto('/#/owner/versions/candidate?section=evaluation:run');

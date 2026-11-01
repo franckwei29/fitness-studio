@@ -6,6 +6,7 @@ not evidence of a live model evaluation or authorization for a real release.
 
 from uuid import uuid4
 
+import pytest
 from sqlalchemy import select
 from test_admission_integration import owner_client as owner_fixture
 
@@ -22,11 +23,14 @@ from app.worker import run_once
 owner_client = owner_fixture
 
 
-def test_successful_review_and_canary_execution(monkeypatch, owner_client):
+@pytest.mark.parametrize("failed_side", [None, "baseline", "candidate"])
+def test_successful_review_and_canary_execution(monkeypatch, owner_client, failed_side):
     def simulated(claim, instruction, context, output_type, max_output_tokens):
         output = ChatReply(
             reply="The recorded evidence requires owner review. Unknown usage has no determined cost. No repair or deployment is confirmed."
         )
+        if failed_side and context["agent_version_id"] == versions[0 if failed_side == "baseline" else 1]:
+            output = ChatReply(reply="中文")
         model = get_settings().gemini_model
         usage = dict(
             total_input_tokens=10,
@@ -102,7 +106,9 @@ def test_successful_review_and_canary_execution(monkeypatch, owner_client):
     for request_id in start["summary"]["request_ids"]:
         assert run_once(request_id)
     detail = owner_client.get(f"{path}/{run['id']}").json()
-    assert detail["run"]["status"] == "Completed", detail
+    assert detail["run"]["status"] == ("FailedChecks" if failed_side else "Completed"), detail
+    assert detail["release_eligible"] is (failed_side != "candidate")
+    assert detail["run"]["summary"]["release_eligible"] is (failed_side != "candidate")
     assert "quality_review" not in detail["run"]["summary"]
     assert len(detail["models"]) == 2
     assert all(model["cost_complete"] for model in detail["models"])
@@ -125,6 +131,10 @@ def test_successful_review_and_canary_execution(monkeypatch, owner_client):
             reason="Synthetic release protocol verification.",
         ),
     )
+    if failed_side == "candidate":
+        assert proposal.status_code == 409, proposal.text
+        assert "candidate model failed" in proposal.text
+        return
     assert proposal.status_code == 201, proposal.text
     release = proposal.json()
     endpoint = f"/api/owner/releases/{release['id']}"

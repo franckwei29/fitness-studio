@@ -94,3 +94,33 @@ def test_release_handoff_resolves_evaluation_and_prevents_conflicting_keep(owner
     )
     updates = owner_client.get("/api/owner/updates").json()
     assert next(r for r in updates["items"] if r["id"] == row["id"])["state"] == "Resolved"
+
+
+def test_closed_comparison_rejects_stale_release_requests(owner_client):
+    _, run, path = prepare(owner_client)
+    with transaction() as db:
+        db.get(EvaluationRun, run["id"]).status = "Completed"
+    detail = owner_client.get(path).json()
+    assert (
+        owner_client.post(
+            path + "/keep-current", json={"fingerprint": detail["decision_fingerprint"]}
+        ).status_code
+        == 200
+    )
+    detail = owner_client.get(path).json()
+    assert detail["release_eligible"] is False
+    assert "comparison is closed" in detail["release_block_reason"]
+    canary = next(g for g in owner_client.get("/api/owner/groups").json() if g["name"] == "Canary")
+    for _ in range(2):
+        response = owner_client.post(
+            "/api/owner/releases",
+            json={
+                "group_id": canary["id"],
+                "expected_group_version": canary["version"],
+                "evaluation_id": run["id"],
+                "reason": "Stale page attempting a closed comparison release.",
+            },
+        )
+        assert response.status_code == 409, response.text
+        assert "comparison is closed" in response.text
+    assert owner_client.get(path).json()["release"] is None

@@ -34,7 +34,7 @@ test('saved request updates from delay to completion without another member subm
  await expect(page.getByRole('textbox',{name:'Message',exact:true})).toHaveValue('My unsent question');
  state='Running';
  await page.evaluate(()=>window.dispatchEvent(new Event('online')));
- await expect(page.locator('.planning-task .spin')).toBeVisible();
+ await expect(page.locator('.planning-task .processing-status .spin')).toBeVisible();
  state='Completed';
  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
  await expect(page.getByText('Your draft plans are ready.',{exact:true})).toBeVisible();

@@ -128,3 +128,35 @@ def test_changed_or_incomplete_evidence_is_rejected(change):
         calls[0].request_fingerprint = "unrelated"
     with pytest.raises(PolicyDenied):
         verified_evidence(db, run)
+
+
+@pytest.mark.parametrize("failed_side", [0, 1])
+def test_only_candidate_rule_failure_blocks_release(failed_side):
+    db, run, results, calls, _ = evidence()
+    output = {"reply": "中文"}
+    row = results[failed_side]
+    row.output = output
+    calls[failed_side].output = output
+    row.checks = score_case(run.role, run.cases[0], output)
+    row.passed = False
+    if failed_side == 0:
+        from app.agent_release import release_evidence
+        run.status = "FailedChecks"
+        assert len(release_evidence(db, run)) == 64
+    else:
+        with pytest.raises(PolicyDenied, match="candidate model failed"):
+            verified_evidence(db, run)
+
+
+def test_forged_baseline_pass_flag_is_rejected():
+    db, run, results, _, _ = evidence()
+    results[0].passed = False
+    with pytest.raises(PolicyDenied):
+        verified_evidence(db, run)
+
+
+def test_keep_current_closes_otherwise_valid_release_evidence():
+    db, run, _, _, _ = evidence()
+    run.summary = run.summary | {"owner_decision": {"choice": "KeepCurrent"}}
+    with pytest.raises(PolicyDenied, match="comparison is closed"):
+        verified_evidence(db, run)

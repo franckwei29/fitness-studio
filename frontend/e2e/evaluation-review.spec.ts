@@ -1,8 +1,9 @@
 import {test,expect} from '@playwright/test';
 // UI-only fixtures, not model quality evidence.
-for(const status of ['Completed','Incomplete'])test(`comparison ${status}: no ratings and explicit decision`,async({page})=>{
+for(const status of ['Completed','Incomplete','FailedChecksBaseline','FailedChecksCandidate'])test(`comparison ${status}: no ratings and explicit decision`,async({page})=>{
  const candidate={id:'candidate',role:'Coach',label:'Gemini trial',model:'gemini-test',prompt:'Fixture',fingerprint:'fixture',configured_groups:[]};
- const run={id:'run',baseline_id:'current',candidate_id:'candidate',evidence_mode:'Live',status,cases:[{key:'case-one'}],suite_version:'fixture'};
+ const run={id:'run',baseline_id:'current',candidate_id:'candidate',evidence_mode:'Live',status:status.startsWith('FailedChecks')?'FailedChecks':status,cases:[{key:'case-one'}],suite_version:'fixture'};
+ const passes=(id:string)=>!(status==='FailedChecksBaseline'&&id==='current'||status==='FailedChecksCandidate'&&id==='candidate');
  let proposals=0;
  await page.route('**/api/**',async route=>{
  const path=new URL(route.request().url()).pathname;let data:unknown;
@@ -11,7 +12,7 @@ for(const status of ['Completed','Incomplete'])test(`comparison ${status}: no ra
  else if(path==='/api/conversations')data=[];
  else if(path==='/api/owner/groups')data=[{id:'canary',name:'Canary',version:1}];
  else if(path==='/api/owner/agent-versions')data={default_model:'luna-test',versions:[candidate]};
- else if(path.endsWith('/evaluations/run'))data={run,models:['current','candidate'].map((id,i)=>({version_id:id,model:i?'gemini-test':'luna-test',provider:i?'gemini':'openai',passed:1,expected:1,recorded:1,average_latency_ms:1000,average_cost_micros:status==='Completed'?10:null})),results:['current','candidate'].map(id=>({id,agent_version_id:id,case_key:'case-one',passed:true,checks:{violations:[]},output:{explanation:'An understandable plan.'}})),tasks:[],usage:{calls:2,settled_micros:20,unknown_calls:0}};
+ else if(path.endsWith('/evaluations/run'))data={release_eligible:['Completed','FailedChecksBaseline'].includes(status),run,models:['current','candidate'].map((id,i)=>({version_id:id,model:i?'gemini-test':'luna-test',provider:i?'gemini':'openai',passed:passes(id)?1:0,expected:1,recorded:1,average_latency_ms:1000,average_cost_micros:status==='Completed'?10:null})),results:['current','candidate'].map(id=>({id,agent_version_id:id,case_key:'case-one',passed:passes(id),checks:{violations:passes(id)?[]:['Unknown exercise: example.']},output:{explanation:'An understandable plan.'}})),tasks:[],usage:{calls:2,settled_micros:20,unknown_calls:0}};
  else if(path.endsWith('/evaluations'))data=[run];
  else if(path==='/api/owner/releases'&&route.request().method()==='POST'){proposals++;data={id:'release'};}
  else if(path.includes('/receipts'))data={recorded:false};
@@ -22,7 +23,7 @@ for(const status of ['Completed','Incomplete'])test(`comparison ${status}: no ra
  await expect(page.getByRole('button',{name:'Submit quality review'})).toHaveCount(0);
  await page.getByText('Compare plan example · case-one').click();
  await expect(page.getByText('An understandable plan.',{exact:true})).toHaveCount(2);
- if(status==='Completed'){
+ if(['Completed','FailedChecksBaseline'].includes(status)){
  expect(proposals).toBe(0);await page.getByRole('button',{name:'Prepare Canary release'}).click();
  await expect(page.getByRole('button',{name:'Review release and confirm'})).toBeVisible();expect(proposals).toBe(1);
  }else{await expect(page.getByRole('button',{name:'Prepare Canary release'})).toHaveCount(0);await expect(page.getByText('Awaiting complete costs')).toHaveCount(2);}
@@ -86,16 +87,19 @@ test('keeping the current model records a decision without preparing a release',
  else if(path==='/api/conversations'||path==='/api/owner/groups')data=[];
  else if(path==='/api/owner/agent-versions')data={default_model:'luna',versions:[{id:'candidate',role:'Coach',label:'Gemini trial',model:'gemini',prompt:'Fixture',configured_groups:[]}]};
  else if(path.endsWith('/evaluations/run/keep-current')){expect(route.request().postDataJSON()).toEqual({fingerprint:'exact-comparison'});kept=true;run.summary={owner_decision:{choice:'KeepCurrent'}};data=run;}
- else if(path.endsWith('/evaluations/run'))data={run,decision_fingerprint:'exact-comparison',release:null,models:[],results:[],tasks:[],usage:{calls:0,settled_micros:0,unknown_calls:0}};
+ else if(path.endsWith('/evaluations/run'))data={release_eligible:true,run,decision_fingerprint:'exact-comparison',release:null,models:[],results:[],tasks:[],usage:{calls:0,settled_micros:0,unknown_calls:0}};
  else if(path==='/api/owner/releases'){releaseWrites++;data={};}
  else if(path.includes('/receipts'))data={recorded:false};
  else throw Error('Unexpected fixture '+path);
  await route.fulfill({json:data});});
  await page.goto('/#/owner/versions/candidate?section=evaluation:run');
+ await expect(page.getByRole('button',{name:'Prepare Canary release',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Keep current model',exact:true}).click();
  await expect(page.getByRole('status')).toContainText('This comparison is resolved in Updates');
  await expect(page.getByRole('button',{name:'Current model kept'})).toBeDisabled();
+ await expect(page.getByRole('button',{name:'Prepare Canary release',exact:true})).toHaveCount(0);
  await page.reload();
  await expect(page.getByRole('status')).toContainText('No service configuration was changed');
+ await expect(page.getByRole('button',{name:'Prepare Canary release',exact:true})).toHaveCount(0);
  expect(releaseWrites).toBe(0);
 });
